@@ -22,9 +22,10 @@
 */
 
 import 'package:logger/logger.dart';
+import 'dart:io' as io;
 
 class Logs extends Logger {
-  static final Logs _singleton = Logs._internal();
+  static final Logs _singleton = Logs._internal(io.stdout.terminalColumns);
 
   factory Logs() {
     return _singleton;
@@ -34,9 +35,20 @@ class Logs extends Logger {
 
   final List<OutputEvent> outputEvents = [];
 
-  Logs._internal()
+  static int get _lineLength {
+    try {
+      return io.stdout.terminalColumns;
+    } catch (_) {
+      return 80;
+    }
+  }
+
+  Logs._internal(int lineLength)
       : super(
-          printer: PrettyPrinter(methodCount: 0, lineLength: 100),
+          printer: PrettyPrinter(
+            methodCount: 0,
+            lineLength: lineLength,
+          ),
           filter: _MatrixSdkFilter(),
           output: _CacheOutput(),
         );

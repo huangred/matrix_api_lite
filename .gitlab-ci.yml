@@ -7,10 +7,12 @@ test:
   tags:
     - linux
   stage: coverage
-  image: google/dart
+  image: cirrusci/flutter
   script:
-    - pub get
-    - pub run test
+    - sed -i s/#//g pubspec.yaml
+    - rm -r example
+    - flutter pub get
+    - flutter test --enable-experiment=non-nullable
   
 code_analyze:
   tags:

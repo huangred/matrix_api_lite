@@ -23,11 +23,11 @@
 
 class Pusher {
   String pushkey;
-  String kind;
+  String? kind;
   String appId;
   String appDisplayName;
   String deviceDisplayName;
-  String profileTag;
+  String? profileTag;
   String lang;
   PusherData data;
 
@@ -42,16 +42,15 @@ class Pusher {
     this.kind,
   });
 
-  Pusher.fromJson(Map<String, dynamic> json) {
-    pushkey = json['pushkey'];
-    kind = json['kind'];
-    appId = json['app_id'];
-    appDisplayName = json['app_display_name'];
-    deviceDisplayName = json['device_display_name'];
-    profileTag = json['profile_tag'];
-    lang = json['lang'];
-    data = PusherData.fromJson(json['data']);
-  }
+  Pusher.fromJson(Map<String, dynamic> json)
+      : pushkey = json['pushkey'],
+        kind = json['kind'],
+        appId = json['app_id'],
+        appDisplayName = json['app_display_name'],
+        deviceDisplayName = json['device_display_name'],
+        profileTag = json['profile_tag'],
+        lang = json['lang'],
+        data = PusherData.fromJson(json['data']);
 
   Map<String, dynamic> toJson() {
     final data = <String, dynamic>{};
@@ -70,8 +69,8 @@ class Pusher {
 }
 
 class PusherData {
-  Uri url;
-  String format;
+  Uri? url;
+  String? format;
 
   PusherData({
     this.url,

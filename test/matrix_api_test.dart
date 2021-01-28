@@ -1,3 +1,4 @@
+// @dart=2.9
 /* MIT License
 * 
 * Copyright (C) 2019, 2020, 2021 Famedly GmbH
@@ -129,17 +130,19 @@ void main() {
           supportedVersions.toJson());
       matrixApi.homeserver = null;
     });
-    test('getWellKnownInformations', () async {
+    test('requestWellKnownInformations', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
       final wellKnownInformations =
           await matrixApi.requestWellKnownInformations();
       expect(wellKnownInformations.mHomeserver.baseUrl,
-          'https://matrix.example.com');
+          'https://fakeserver.notexisting');
       expect(wellKnownInformations.toJson(), {
-        'm.homeserver': {'base_url': 'https://matrix.example.com'},
-        'm.identity_server': {'base_url': 'https://identity.example.com'},
+        'm.homeserver': {'base_url': 'https://fakeserver.notexisting'},
+        'm.identity_server': {
+          'base_url': 'https://identity.fakeserver.notexisting'
+        },
         'org.example.custom.property': {
-          'app_url': 'https://custom.app.example.org'
+          'app_url': 'https://custom.app.fakeserver.notexisting'
         }
       });
     });

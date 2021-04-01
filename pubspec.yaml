@@ -7,7 +7,7 @@ environment:
   sdk: ">=2.10.0 <3.0.0"
 
 dependencies:
-  http: ^0.13.0
+  json_rest_api_client: ^0.1.5
   logger: ^1.0.0
   mime: ^1.0.0
 

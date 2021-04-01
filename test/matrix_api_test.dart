@@ -22,6 +22,7 @@
 */
 
 import 'dart:typed_data';
+import 'package:json_rest_api_client/json_rest_api_client.dart';
 import 'package:logger/logger.dart';
 import 'package:matrix_api_lite/fake_matrix_api.dart';
 import 'package:matrix_api_lite/matrix_api_lite.dart';
@@ -77,35 +78,35 @@ void main() {
       bool error;
       error = false;
       try {
-        await matrixApi.request(RequestType.GET, '/fake/path');
+        await matrixApi.request(RequestMethod.get, '/fake/path');
       } catch (_) {
         error = true;
       }
       expect(error, true);
       error = false;
       try {
-        await matrixApi.request(RequestType.POST, '/fake/path');
+        await matrixApi.request(RequestMethod.post, '/fake/path');
       } catch (_) {
         error = true;
       }
       expect(error, true);
       error = false;
       try {
-        await matrixApi.request(RequestType.PUT, '/fake/path');
+        await matrixApi.request(RequestMethod.put, '/fake/path');
       } catch (_) {
         error = true;
       }
       expect(error, true);
       error = false;
       try {
-        await matrixApi.request(RequestType.DELETE, '/fake/path');
+        await matrixApi.request(RequestMethod.delete, '/fake/path');
       } catch (_) {
         error = true;
       }
       expect(error, true);
       error = false;
       try {
-        await matrixApi.request(RequestType.GET, '/path/to/auth/error/');
+        await matrixApi.request(RequestMethod.get, '/path/to/auth/error/');
       } catch (exception) {
         expect(exception is MatrixException, true);
         expect((exception as MatrixException).errcode, 'M_FORBIDDEN');
@@ -164,15 +165,15 @@ void main() {
     });
     test('logout', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
       await matrixApi.logout();
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('logoutAll', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
       await matrixApi.logoutAll();
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('register', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
@@ -184,7 +185,7 @@ void main() {
     });
     test('requestEmailToken', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
       final response = await matrixApi.requestEmailToken(
         'alice@example.com',
         '1234',
@@ -197,11 +198,11 @@ void main() {
           FakeMatrixApi.api['POST']
               ['/client/r0/register/email/requestToken']({}),
           response.toJson());
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestMsisdnToken', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
       final response = await matrixApi.requestMsisdnToken(
         'en',
         '1234',
@@ -215,11 +216,11 @@ void main() {
           FakeMatrixApi.api['POST']
               ['/client/r0/register/email/requestToken']({}),
           response.toJson());
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('changePassword', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
       await matrixApi.changePassword(
         '1234',
         auth: AuthenticationData.fromJson({
@@ -228,11 +229,11 @@ void main() {
           'example_credential': 'verypoorsharedsecret'
         }),
       );
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('resetPasswordUsingEmail', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
       await matrixApi.resetPasswordUsingEmail(
         'alice@example.com',
         '1234',
@@ -241,11 +242,11 @@ void main() {
         idServer: 'https://example.com',
         idAccessToken: '1234',
       );
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('resetPasswordUsingMsisdn', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
       await matrixApi.resetPasswordUsingMsisdn(
         'en',
         '1234',
@@ -255,11 +256,11 @@ void main() {
         idServer: 'https://example.com',
         idAccessToken: '1234',
       );
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('deactivateAccount', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
       final response = await matrixApi.deactivateAccount(
         idServer: 'https://example.com',
         auth: AuthenticationData.fromJson({
@@ -269,7 +270,7 @@ void main() {
         }),
       );
       expect(response, IdServerUnbindResult.success);
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('usernameAvailable', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
@@ -279,55 +280,55 @@ void main() {
     });
     test('getThirdPartyIdentifiers', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
       final response = await matrixApi.requestThirdPartyIdentifiers();
       expect(FakeMatrixApi.api['GET']['/client/r0/account/3pid']({}),
           {'threepids': response.map((t) => t.toJson()).toList()});
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('addThirdPartyIdentifier', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
       await matrixApi.addThirdPartyIdentifier('1234', '1234',
           auth: AuthenticationData.fromJson({'type': 'm.login.dummy'}));
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('bindThirdPartyIdentifier', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
       await matrixApi.bindThirdPartyIdentifier(
         '1234',
         '1234',
         'https://example.com',
         '1234',
       );
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('deleteThirdPartyIdentifier', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
       final response = await matrixApi.deleteThirdPartyIdentifier(
         'alice@example.com',
         ThirdPartyIdentifierMedium.email,
         idServer: 'https://example.com',
       );
       expect(response, IdServerUnbindResult.success);
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('unbindThirdPartyIdentifier', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
       final response = await matrixApi.unbindThirdPartyIdentifier(
         'alice@example.com',
         ThirdPartyIdentifierMedium.email,
         'https://example.com',
       );
       expect(response, IdServerUnbindResult.success);
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestEmailValidationToken', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
       await matrixApi.requestEmailValidationToken(
         'alice@example.com',
         '1234',
@@ -336,11 +337,11 @@ void main() {
         idServer: 'https://example.com',
         idAccessToken: '1234',
       );
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestMsisdnValidationToken', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
       await matrixApi.requestMsisdnValidationToken(
         'en',
         '1234',
@@ -350,26 +351,26 @@ void main() {
         idServer: 'https://example.com',
         idAccessToken: '1234',
       );
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestMsisdnValidationToken', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
       final response = await matrixApi.whoAmI();
       expect(response, 'alice@example.com');
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('getServerCapabilities', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
       final response = await matrixApi.requestServerCapabilities();
       expect(FakeMatrixApi.api['GET']['/client/r0/capabilities']({}),
           {'capabilities': response.toJson()});
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('uploadFilter', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
       final response =
           await matrixApi.uploadFilter('alice@example.com', Filter());
       expect(response, '1234');
@@ -476,17 +477,17 @@ void main() {
         'event_fields': ['type', 'content', 'sender']
       };
       expect(filterMap, Filter.fromJson(filterMap).toJson());
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('downloadFilter', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
       await matrixApi.downloadFilter('alice@example.com', '1234');
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('sync', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
       final response = await matrixApi.sync(
         filter: '{}',
         since: '1234',
@@ -499,40 +500,40 @@ void main() {
                   '/client/r0/sync?filter=%7B%7D&since=1234&full_state=false&set_presence=unavailable&timeout=15'](
               {}) as Map,
           response.toJson());
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestEvent', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final event =
           await matrixApi.requestEvent('!localpart:server.abc', '1234');
       expect(event.eventId, '143273582443PhrSn:example.org');
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestStateContent', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.requestStateContent(
         '!localpart:server.abc',
         'm.room.member',
         '@getme:example.com',
       );
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestStates', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final states = await matrixApi.requestStates('!localpart:server.abc');
       expect(states.length, 4);
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestMembers', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final states = await matrixApi.requestMembers(
         '!localpart:server.abc',
@@ -542,11 +543,11 @@ void main() {
       );
       expect(states.length, 1);
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestJoinedMembers', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final states = await matrixApi.requestJoinedMembers(
         '!localpart:server.abc',
@@ -557,11 +558,11 @@ void main() {
         'avatar_url': 'mxc://riot.ovh/printErCATzZijQsSDWorRaK'
       });
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestMessages', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final timelineHistoryResponse = await matrixApi.requestMessages(
         '!localpart:server.abc',
@@ -578,22 +579,22 @@ void main() {
               {}) as Map,
           timelineHistoryResponse.toJson());
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('sendState', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final eventId = await matrixApi.sendState(
           '!localpart:server.abc', 'm.room.avatar', {'url': 'mxc://1234'});
 
       expect(eventId, 'YUwRidLecu:example.com');
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('sendMessage', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final eventId = await matrixApi.sendMessage(
         '!localpart:server.abc',
@@ -604,11 +605,11 @@ void main() {
 
       expect(eventId, 'YUwRidLecu:example.com');
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('redact', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final eventId = await matrixApi.redact(
         '!localpart:server.abc',
@@ -619,11 +620,11 @@ void main() {
 
       expect(eventId, 'YUwRidLecu:example.com');
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('createRoom', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final roomId = await matrixApi.createRoom(
         visibility: Visibility.public,
@@ -642,22 +643,22 @@ void main() {
 
       expect(roomId, '!1234:fakeServer.notExisting');
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('createRoomAlias', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.createRoomAlias(
         '#testalias:example.com',
         '!1234:example.com',
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestRoomAliasInformation', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final roomAliasInformation = await matrixApi.requestRoomAliasInformation(
         '#testalias:example.com',
@@ -668,46 +669,46 @@ void main() {
               ['/client/r0/directory/room/%23testalias%3Aexample.com']({}),
           roomAliasInformation.toJson());
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('removeRoomAlias', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.removeRoomAlias('#testalias:example.com');
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestRoomAliases', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final list = await matrixApi.requestRoomAliases('!localpart:example.com');
       expect(list.length, 3);
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestJoinedRooms', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final list = await matrixApi.requestJoinedRooms();
       expect(list.length, 1);
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('inviteToRoom', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.inviteToRoom(
           '!localpart:example.com', '@bob:example.com');
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('joinRoom', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final roomId = '!localpart:example.com';
       final response = await matrixApi.joinRoom(
@@ -721,11 +722,11 @@ void main() {
       );
       expect(response, roomId);
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('joinRoomOrAlias', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final roomId = '!localpart:example.com';
       final response = await matrixApi.joinRoomOrAlias(
@@ -740,27 +741,27 @@ void main() {
       );
       expect(response, roomId);
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('leave', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.leaveRoom('!localpart:example.com');
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('forget', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.forgetRoom('!localpart:example.com');
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('kickFromRoom', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.kickFromRoom(
         '!localpart:example.com',
@@ -768,11 +769,11 @@ void main() {
         reason: 'test',
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('banFromRoom', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.banFromRoom(
         '!localpart:example.com',
@@ -780,41 +781,41 @@ void main() {
         reason: 'test',
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('unbanInRoom', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.unbanInRoom(
         '!localpart:example.com',
         '@bob:example.com',
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestRoomVisibility', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final visibility =
           await matrixApi.requestRoomVisibility('!localpart:example.com');
       expect(visibility, Visibility.public);
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('setRoomVisibility', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.setRoomVisibility(
           '!localpart:example.com', Visibility.private);
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestPublicRooms', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response = await matrixApi.requestPublicRooms(
         limit: 10,
@@ -827,11 +828,11 @@ void main() {
               '/client/r0/publicRooms?limit=10&since=1234&server=example.com']({}),
           response.toJson());
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('searchPublicRooms', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response = await matrixApi.searchPublicRooms(
         limit: 10,
@@ -847,11 +848,11 @@ void main() {
               ['/client/r0/publicRooms?server=example.com']({}),
           response.toJson());
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('searchUser', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response = await matrixApi.searchUser(
         'test',
@@ -861,47 +862,47 @@ void main() {
       expect(FakeMatrixApi.api['POST']['/client/r0/user_directory/search']({}),
           response.toJson());
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('setDisplayname', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.setDisplayname('@alice:example.com', 'Alice M');
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestDisplayname', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.requestDisplayname('@alice:example.com');
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('setAvatarUrl', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.setAvatarUrl(
         '@alice:example.com',
         Uri.parse('mxc://test'),
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestAvatarUrl', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response = await matrixApi.requestAvatarUrl('@alice:example.com');
       expect(response, Uri.parse('mxc://test'));
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestProfile', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response = await matrixApi.requestProfile('@alice:example.com');
       expect(
@@ -909,21 +910,21 @@ void main() {
               ['/client/r0/profile/%40alice%3Aexample.com']({}),
           response.toJson());
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestTurnServerCredentials', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response = await matrixApi.requestTurnServerCredentials();
       expect(FakeMatrixApi.api['GET']['/client/r0/voip/turnServer']({}),
           response.toJson());
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('sendTypingNotification', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.sendTypingNotification(
         '@alice:example.com',
@@ -932,22 +933,22 @@ void main() {
         timeout: 10,
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('sendReceiptMarker', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.sendReceiptMarker(
         '!localpart:example.com',
         '\$1234:example.com',
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('sendReadMarker', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.sendReadMarker(
         '!localpart:example.com',
@@ -955,11 +956,11 @@ void main() {
         readReceiptLocationEventId: '\$1234:example.com',
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('sendPresence', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.sendPresence(
         '@alice:example.com',
@@ -967,11 +968,11 @@ void main() {
         statusMsg: 'test',
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestPresence', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response = await matrixApi.requestPresence(
         '@alice:example.com',
@@ -981,7 +982,7 @@ void main() {
               '/client/r0/presence/${Uri.encodeComponent('@alice:example.com')}/status']({}),
           response.toJson());
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('upload', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
@@ -998,7 +999,7 @@ void main() {
     });
     test('requestOpenGraphDataForUrl', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final openGraphData = await matrixApi.requestOpenGraphDataForUrl(
         Uri.parse('https://matrix.org'),
@@ -1009,20 +1010,20 @@ void main() {
               ['/media/r0/preview_url?url=https%3A%2F%2Fmatrix.org&ts=10']({}),
           openGraphData.toJson());
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestMaxUploadSize', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response = await matrixApi.requestMaxUploadSize();
       expect(response, 50000000);
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('sendToDevice', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.sendToDevice('m.test', '1234', {
         '@alice:example.com': {
@@ -1030,55 +1031,55 @@ void main() {
         }
       });
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestDevices', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final devices = await matrixApi.requestDevices();
       expect(FakeMatrixApi.api['GET']['/client/r0/devices']({})['devices'],
           devices.map((i) => i.toJson()).toList());
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestDevice', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.requestDevice('QBUAZIFURK');
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('setDeviceMetadata', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.setDeviceMetadata('QBUAZIFURK', displayName: 'test');
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('deleteDevice', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.deleteDevice('QBUAZIFURK',
           auth: AuthenticationData.fromJson({}));
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('deleteDevices', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi
           .deleteDevices(['QBUAZIFURK'], auth: AuthenticationData.fromJson({}));
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('uploadDeviceKeys', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.uploadDeviceKeys(
         deviceKeys: MatrixDeviceKeys(
@@ -1091,11 +1092,11 @@ void main() {
         ),
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestDeviceKeys', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response = await matrixApi.requestDeviceKeys(
         {
@@ -1113,11 +1114,11 @@ void main() {
               ['/client/r0/keys/query']({'device_keys': {}}),
           response.toJson());
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestOneTimeKeys', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response = await matrixApi.requestOneTimeKeys(
         {
@@ -1133,19 +1134,19 @@ void main() {
           }),
           response.toJson());
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestDeviceListsUpdate', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.requestDeviceListsUpdate('1234', '1234');
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('uploadDeviceSigningKeys', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final masterKey = MatrixCrossSigningKey.fromJson({
         'user_id': '@test:fakeServer.notExisting',
@@ -1181,7 +1182,7 @@ void main() {
     });
     test('uploadKeySignatures', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final key1 = MatrixDeviceKeys.fromJson({
         'user_id': '@alice:example.com',
@@ -1228,7 +1229,7 @@ void main() {
     });
     test('requestPushers', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response = await matrixApi.requestPushers();
       expect(
@@ -1236,11 +1237,11 @@ void main() {
         {'pushers': response.map((i) => i.toJson()).toList()},
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('setPusher', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.setPusher(
         Pusher(
@@ -1257,11 +1258,11 @@ void main() {
         append: true,
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestNotifications', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response = await matrixApi.requestNotifications(
         from: '1234',
@@ -1274,11 +1275,11 @@ void main() {
         response.toJson(),
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestPushRules', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response = await matrixApi.requestPushRules();
       expect(
@@ -1286,11 +1287,11 @@ void main() {
         {'global': response.toJson()},
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestPushRule', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response = await matrixApi.requestPushRule(
           'global', PushRuleKind.content, 'nocake');
@@ -1300,19 +1301,19 @@ void main() {
         response.toJson(),
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('deletePushRule', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.deletePushRule('global', PushRuleKind.content, 'nocake');
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('setPushRule', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.setPushRule(
         'global',
@@ -1332,21 +1333,21 @@ void main() {
         pattern: 'pattern',
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestPushRuleEnabled', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final enabled = await matrixApi.requestPushRuleEnabled(
           'global', PushRuleKind.content, 'nocake');
       expect(enabled, true);
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('enablePushRule', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.enablePushRule(
         'global',
@@ -1355,21 +1356,21 @@ void main() {
         true,
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestPushRuleActions', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final actions = await matrixApi.requestPushRuleActions(
           'global', PushRuleKind.content, 'nocake');
       expect(actions.first, PushRuleAction.notify);
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('setPushRuleActions', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.setPushRuleActions(
         'global',
@@ -1378,19 +1379,19 @@ void main() {
         [PushRuleAction.dont_notify],
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('globalSearch', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.globalSearch({});
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('globalSearch', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response = await matrixApi.requestEvents(
           from: '1234', roomId: '!1234', timeout: 10);
@@ -1400,11 +1401,11 @@ void main() {
         response.toJson(),
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestRoomTags', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response = await matrixApi.requestRoomTags(
           '@alice:example.com', '!localpart:example.com');
@@ -1414,11 +1415,11 @@ void main() {
         {'tags': response.map((k, v) => MapEntry(k, v.toJson()))},
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('addRoomTag', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.addRoomTag(
         '@alice:example.com',
@@ -1427,11 +1428,11 @@ void main() {
         order: 0.5,
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('addRoomTag', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.removeRoomTag(
         '@alice:example.com',
@@ -1439,11 +1440,11 @@ void main() {
         'testtag',
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('setAccountData', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.setAccountData(
         '@alice:example.com',
@@ -1451,22 +1452,22 @@ void main() {
         {'foo': 'bar'},
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestAccountData', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.requestAccountData(
         '@alice:example.com',
         'test.account.data',
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('setRoomAccountData', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.setRoomAccountData(
         '@alice:example.com',
@@ -1475,11 +1476,11 @@ void main() {
         {'foo': 'bar'},
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestRoomAccountData', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.requestRoomAccountData(
         '@alice:example.com',
@@ -1487,11 +1488,11 @@ void main() {
         'test.account.data',
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestWhoIsInfo', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response = await matrixApi.requestWhoIsInfo('@alice:example.com');
       expect(
@@ -1500,11 +1501,11 @@ void main() {
         response.toJson(),
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestEventContext', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response = await matrixApi.requestEventContext('1234', '1234',
           limit: 10, filter: '{}');
@@ -1514,11 +1515,11 @@ void main() {
         response.toJson(),
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('reportEvent', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.reportEvent(
         '1234',
@@ -1527,11 +1528,11 @@ void main() {
         -100,
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestSupportedProtocols', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response = await matrixApi.requestSupportedProtocols();
       expect(
@@ -1539,11 +1540,11 @@ void main() {
         response.map((k, v) => MapEntry(k, v.toJson())),
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestSupportedProtocol', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response = await matrixApi.requestSupportedProtocol('irc');
       expect(
@@ -1551,11 +1552,11 @@ void main() {
         response.toJson(),
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestThirdPartyLocations', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response = await matrixApi.requestThirdPartyLocations('irc');
       expect(
@@ -1563,11 +1564,11 @@ void main() {
         response.map((i) => i.toJson()).toList(),
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestThirdPartyUsers', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response = await matrixApi.requestThirdPartyUsers('irc');
       expect(
@@ -1575,11 +1576,11 @@ void main() {
         response.map((i) => i.toJson()).toList(),
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestThirdPartyLocationsByAlias', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response =
           await matrixApi.requestThirdPartyLocationsByAlias('1234');
@@ -1589,11 +1590,11 @@ void main() {
         response.map((i) => i.toJson()).toList(),
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestThirdPartyUsersByUserId', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response = await matrixApi.requestThirdPartyUsersByUserId('1234');
       expect(
@@ -1601,11 +1602,11 @@ void main() {
         response.map((i) => i.toJson()).toList(),
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('requestOpenIdCredentials', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final response = await matrixApi.requestOpenIdCredentials('1234');
       expect(
@@ -1614,19 +1615,19 @@ void main() {
         response.toJson(),
       );
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('upgradeRoom', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.upgradeRoom('1234', '2');
 
-      matrixApi.homeserver = matrixApi.accessToken = null;
+      matrixApi.homeserver = matrixApi.bearerToken = null;
     });
     test('createRoomKeysBackup', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final algorithm = RoomKeysAlgorithmType.v1Curve25519AesSha2;
       final authData = <String, dynamic>{
@@ -1641,7 +1642,7 @@ void main() {
     });
     test('getRoomKeysBackup', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final ret = await matrixApi.getRoomKeysBackup();
       expect(FakeMatrixApi.api['GET']['/client/unstable/room_keys/version']({}),
@@ -1649,7 +1650,7 @@ void main() {
     });
     test('updateRoomKeysBackup', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final algorithm = RoomKeysAlgorithmType.v1Curve25519AesSha2;
       final authData = <String, dynamic>{
@@ -1660,13 +1661,13 @@ void main() {
     });
     test('deleteRoomKeysBackup', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       await matrixApi.deleteRoomKeysBackup('5');
     });
     test('storeRoomKeysSingleKey', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final roomId = '!726s6s6q:example.com';
       final sessionId = 'ciM/JWTPrmiWPPZNkRLDPQYf9AW/I46bxyLSr+Bx5oU';
@@ -1690,7 +1691,7 @@ void main() {
     });
     test('getRoomKeysSingleKey', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final roomId = '!726s6s6q:example.com';
       final sessionId = 'ciM/JWTPrmiWPPZNkRLDPQYf9AW/I46bxyLSr+Bx5oU';
@@ -1702,7 +1703,7 @@ void main() {
     });
     test('deleteRoomKeysSingleKey', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final roomId = '!726s6s6q:example.com';
       final sessionId = 'ciM/JWTPrmiWPPZNkRLDPQYf9AW/I46bxyLSr+Bx5oU';
@@ -1715,7 +1716,7 @@ void main() {
     });
     test('storeRoomKeysRoom', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final roomId = '!726s6s6q:example.com';
       final sessionId = 'ciM/JWTPrmiWPPZNkRLDPQYf9AW/I46bxyLSr+Bx5oU';
@@ -1742,7 +1743,7 @@ void main() {
     });
     test('getRoomKeysRoom', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final roomId = '!726s6s6q:example.com';
       final ret = await matrixApi.getRoomKeysRoom(roomId, '5');
@@ -1753,7 +1754,7 @@ void main() {
     });
     test('deleteRoomKeysRoom', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final roomId = '!726s6s6q:example.com';
       final ret = await matrixApi.deleteRoomKeysRoom(roomId, '5');
@@ -1764,7 +1765,7 @@ void main() {
     });
     test('storeRoomKeys', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final roomId = '!726s6s6q:example.com';
       final sessionId = 'ciM/JWTPrmiWPPZNkRLDPQYf9AW/I46bxyLSr+Bx5oU';
@@ -1795,7 +1796,7 @@ void main() {
     });
     test('getRoomKeys', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final ret = await matrixApi.getRoomKeys('5');
       expect(
@@ -1805,7 +1806,7 @@ void main() {
     });
     test('deleteRoomKeys', () async {
       matrixApi.homeserver = Uri.parse('https://fakeserver.notexisting');
-      matrixApi.accessToken = '1234';
+      matrixApi.bearerToken = '1234';
 
       final ret = await matrixApi.deleteRoomKeys('5');
       expect(

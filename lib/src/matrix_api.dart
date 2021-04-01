@@ -26,6 +26,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:json_rest_api_client/json_rest_api_client.dart';
 import 'package:mime/mime.dart';
 
 import '../matrix_api_lite.dart';
@@ -70,7 +71,6 @@ import 'model/user_search_result.dart';
 import 'model/well_known_information.dart';
 import 'model/who_is_info.dart';
 
-enum RequestType { GET, POST, PUT, DELETE }
 enum IdServerUnbindResult { success, no_support }
 enum ThirdPartyIdentifierMedium { email, msisdn }
 enum Membership { join, invite, leave, ban }
@@ -85,35 +85,25 @@ String describeEnum(Object enumEntry) {
   return description.substring(indexOfDot + 1);
 }
 
-class MatrixApi {
+class MatrixApi extends JsonRestApiClient {
   /// The homeserver this client is communicating with.
-  Uri homeserver;
-
-  /// This is the access token for the matrix client. When it is undefined, then
-  /// the user needs to sign in first.
-  String accessToken;
-
-  /// Matrix synchronisation is done with https long polling. This needs a
-  /// timeout which is usually 30 seconds.
-  int syncTimeoutSec;
-
-  http.Client httpClient = http.Client();
+  Uri get homeserver => Uri.parse(baseUrl.origin);
+  set homeserver(Uri origin) {
+    baseUrl = origin?.resolveUri(Uri(path: '/_matrix'));
+  }
 
   bool get _testMode =>
       homeserver.toString() == 'https://fakeserver.notexisting';
 
-  int _timeoutFactor = 1;
-
   MatrixApi({
-    this.homeserver,
-    this.accessToken,
+    Uri homeserver,
+    String bearerToken,
     http.Client httpClient,
-    this.syncTimeoutSec = 30,
-  }) {
-    if (httpClient != null) {
-      this.httpClient = httpClient;
-    }
-  }
+  }) : super(
+          homeserver?.resolveUri(Uri(path: '/_matrix')),
+          bearerToken: bearerToken,
+          httpClient: httpClient,
+        );
 
   /// Used for all Matrix json requests using the [c2s API](https://matrix.org/docs/spec/client_server/r0.6.0.html).
   ///
@@ -124,107 +114,48 @@ class MatrixApi {
   /// message to a Matrix room with the id '!fjd823j:example.com' you call:
   /// ```
   /// final resp = await request(
-  ///   RequestType.PUT,
+  ///   RequestMethod.put,
   ///   '/r0/rooms/!fjd823j:example.com/send/m.room.message/$txnId',
-  ///   data: {
+  ///   json: {
   ///     'msgtype': 'm.text',
   ///     'body': 'hello'
   ///   }
   ///  );
   /// ```
   ///
-  Future<Map<String, dynamic>> request(
-    RequestType type,
-    String action, {
-    dynamic data = '',
-    int timeout,
-    String contentType = 'application/json',
-    Map<String, dynamic> query,
+  @override
+  Future<JsonRestApiResponse> request(
+    RequestMethod method,
+    String endpoint, {
+    dynamic json,
+    Map<String, dynamic> queryParameters,
+    Duration timeout,
+    Map<String, String> headers = const {},
   }) async {
-    if (homeserver == null) {
-      throw ('No homeserver specified.');
-    }
-    timeout ??= (_timeoutFactor * syncTimeoutSec) + 5;
-    dynamic json;
-    (!(data is String)) ? json = jsonEncode(data) : json = data;
-    if (data is List<int> || action.startsWith('/media/r0/upload')) json = data;
-
-    final url = homeserver
-        .resolveUri(Uri(path: '_matrix$action', queryParameters: query));
-
-    var headers = <String, String>{};
-    if (type == RequestType.PUT || type == RequestType.POST) {
-      headers['Content-Type'] = contentType;
-    }
-    if (accessToken != null) {
-      headers['Authorization'] = 'Bearer $accessToken';
-    }
-
-    http.Response resp;
-    var jsonResp = <String, dynamic>{};
     try {
-      switch (describeEnum(type)) {
-        case 'GET':
-          resp = await httpClient.get(url, headers: headers).timeout(
-                Duration(seconds: timeout),
-              );
-          break;
-        case 'POST':
-          resp =
-              await httpClient.post(url, body: json, headers: headers).timeout(
-                    Duration(seconds: timeout),
-                  );
-          break;
-        case 'PUT':
-          resp =
-              await httpClient.put(url, body: json, headers: headers).timeout(
-                    Duration(seconds: timeout),
-                  );
-          break;
-        case 'DELETE':
-          resp = await httpClient.delete(url, headers: headers).timeout(
-                Duration(seconds: timeout),
-              );
-          break;
-      }
-      var respBody = resp.body;
-      try {
-        respBody = utf8.decode(resp.bodyBytes);
-      } catch (_) {
-        // No-OP
-      }
-      if (resp.statusCode >= 500 && resp.statusCode < 600) {
-        throw Exception(respBody);
-      }
-      var jsonString = String.fromCharCodes(respBody.runes);
-      if (jsonString.startsWith('[') && jsonString.endsWith(']')) {
-        jsonString = '\{"chunk":$jsonString\}';
-      }
-      jsonResp = jsonDecode(jsonString)
-          as Map<String, dynamic>; // May throw FormatException
-
-      _timeoutFactor = 1;
-    } on TimeoutException catch (e, s) {
-      _timeoutFactor *= 2;
-      throw MatrixConnectionException(e, s);
+      return await super.request(
+        method,
+        endpoint,
+        json: json,
+        queryParameters: queryParameters,
+        timeout: timeout,
+        headers: headers,
+      );
+    } on JsonRestApiException catch (e) {
+      throw MatrixException.fromJson(e.jsonObject);
     } catch (e, s) {
       throw MatrixConnectionException(e, s);
     }
-    if (resp.statusCode >= 400 && resp.statusCode < 500) {
-      throw MatrixException(resp);
-    }
-
-    return jsonResp;
   }
 
   /// Gets the versions of the specification supported by the server.
   /// https://matrix.org/docs/spec/client_server/r0.6.0#get-matrix-client-versions
   Future<SupportedVersions> requestSupportedVersions() async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/versions',
     );
-    return SupportedVersions.fromJson(response);
+    return SupportedVersions.fromJson(response.jsonObject);
   }
 
   /// Gets discovery information about the domain. The file may include additional keys.
@@ -238,10 +169,10 @@ class MatrixApi {
 
   Future<LoginTypes> requestLoginTypes() async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/login',
     );
-    return LoginTypes.fromJson(response);
+    return LoginTypes.fromJson(response.jsonObject);
   }
 
   /// Authenticates the user, and issues an access token they can use to authorize themself in subsequent requests.
@@ -262,7 +193,8 @@ class MatrixApi {
     @Deprecated('Deprecated in favour of identifier.') String medium,
     @Deprecated('Deprecated in favour of identifier.') String address,
   }) async {
-    final response = await request(RequestType.POST, '/client/r0/login', data: {
+    final response =
+        await request(RequestMethod.post, '/client/r0/login', json: {
       'type': type,
       if (identifier != null) 'identifier': identifier.toJson(),
       if (user != null) 'user': user,
@@ -275,7 +207,7 @@ class MatrixApi {
         'initial_device_display_name': initialDeviceDisplayName,
       if (auth != null) 'auth': auth.toJson(),
     });
-    return LoginResponse.fromJson(response);
+    return LoginResponse.fromJson(response.jsonObject);
   }
 
   /// Invalidates an existing access token, so that it can no longer be used for authorization.
@@ -284,7 +216,7 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.0#post-matrix-client-r0-logout
   Future<void> logout() async {
     await request(
-      RequestType.POST,
+      RequestMethod.post,
       '/client/r0/logout',
     );
     return;
@@ -297,7 +229,7 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.0#post-matrix-client-r0-logout-all
   Future<void> logoutAll() async {
     await request(
-      RequestType.POST,
+      RequestMethod.post,
       '/client/r0/logout/all',
     );
     return;
@@ -324,19 +256,20 @@ class MatrixApi {
     AuthenticationData auth,
     String kind,
   }) async {
-    final response =
-        await request(RequestType.POST, '/client/r0/register', query: {
-      if (kind != null) 'kind': kind,
-    }, data: {
-      if (username != null) 'username': username,
-      if (password != null) 'password': password,
-      if (deviceId != null) 'device_id': deviceId,
-      if (initialDeviceDisplayName != null)
-        'initial_device_display_name': initialDeviceDisplayName,
-      if (inhibitLogin != null) 'inhibit_login': inhibitLogin,
-      if (auth != null) 'auth': auth.toJson(),
-    });
-    return LoginResponse.fromJson(response);
+    final response = await request(RequestMethod.post, '/client/r0/register',
+        queryParameters: {
+          if (kind != null) 'kind': kind,
+        },
+        json: {
+          if (username != null) 'username': username,
+          if (password != null) 'password': password,
+          if (deviceId != null) 'device_id': deviceId,
+          if (initialDeviceDisplayName != null)
+            'initial_device_display_name': initialDeviceDisplayName,
+          if (inhibitLogin != null) 'inhibit_login': inhibitLogin,
+          if (auth != null) 'auth': auth.toJson(),
+        });
+    return LoginResponse.fromJson(response.jsonObject);
   }
 
   /// The homeserver must check that the given email address is not already associated
@@ -353,8 +286,8 @@ class MatrixApi {
     String idAccessToken,
   }) async {
     final response = await request(
-        RequestType.POST, '/client/r0/register/email/requestToken',
-        data: {
+        RequestMethod.post, '/client/r0/register/email/requestToken',
+        json: {
           'email': email,
           'send_attempt': sendAttempt,
           'client_secret': clientSecret,
@@ -362,7 +295,7 @@ class MatrixApi {
           if (idServer != null) 'id_server': idServer,
           if (idAccessToken != null) 'id_access_token': idAccessToken,
         });
-    return RequestTokenResponse.fromJson(response);
+    return RequestTokenResponse.fromJson(response.jsonObject);
   }
 
   /// The homeserver must check that the given phone number is not already associated with an
@@ -379,8 +312,8 @@ class MatrixApi {
     String idAccessToken,
   }) async {
     final response = await request(
-        RequestType.POST, '/client/r0/register/msisdn/requestToken',
-        data: {
+        RequestMethod.post, '/client/r0/register/msisdn/requestToken',
+        json: {
           'country': country,
           'phone_number': phoneNumber,
           'send_attempt': sendAttempt,
@@ -389,7 +322,7 @@ class MatrixApi {
           if (idServer != null) 'id_server': idServer,
           if (idAccessToken != null) 'id_access_token': idAccessToken,
         });
-    return RequestTokenResponse.fromJson(response);
+    return RequestTokenResponse.fromJson(response.jsonObject);
   }
 
   /// Changes the password for an account on this homeserver.
@@ -398,7 +331,7 @@ class MatrixApi {
     String newPassword, {
     AuthenticationData auth,
   }) async {
-    await request(RequestType.POST, '/client/r0/account/password', data: {
+    await request(RequestMethod.post, '/client/r0/account/password', json: {
       'new_password': newPassword,
       if (auth != null) 'auth': auth.toJson(),
     });
@@ -418,8 +351,8 @@ class MatrixApi {
     String idAccessToken,
   }) async {
     final response = await request(
-        RequestType.POST, '/client/r0/account/password/email/requestToken',
-        data: {
+        RequestMethod.post, '/client/r0/account/password/email/requestToken',
+        json: {
           'email': email,
           'send_attempt': sendAttempt,
           'client_secret': clientSecret,
@@ -427,7 +360,7 @@ class MatrixApi {
           if (idServer != null) 'id_server': idServer,
           if (idAccessToken != null) 'id_access_token': idAccessToken,
         });
-    return RequestTokenResponse.fromJson(response);
+    return RequestTokenResponse.fromJson(response.jsonObject);
   }
 
   /// The homeserver must check that the given phone number is associated with
@@ -444,8 +377,8 @@ class MatrixApi {
     String idAccessToken,
   }) async {
     final response = await request(
-        RequestType.POST, '/client/r0/account/password/msisdn/requestToken',
-        data: {
+        RequestMethod.post, '/client/r0/account/password/msisdn/requestToken',
+        json: {
           'country': country,
           'phone_number': phoneNumber,
           'send_attempt': sendAttempt,
@@ -454,7 +387,7 @@ class MatrixApi {
           if (idServer != null) 'id_server': idServer,
           if (idAccessToken != null) 'id_access_token': idAccessToken,
         });
-    return RequestTokenResponse.fromJson(response);
+    return RequestTokenResponse.fromJson(response.jsonObject);
   }
 
   /// https://matrix.org/docs/spec/client_server/r0.6.1#post-matrix-client-r0-account-deactivate
@@ -462,26 +395,27 @@ class MatrixApi {
     String idServer,
     AuthenticationData auth,
   }) async {
-    final response =
-        await request(RequestType.POST, '/client/r0/account/deactivate', data: {
-      if (idServer != null) 'id_server': idServer,
-      if (auth != null) 'auth': auth.toJson(),
-    });
+    final response = await request(
+        RequestMethod.post, '/client/r0/account/deactivate',
+        json: {
+          if (idServer != null) 'id_server': idServer,
+          if (auth != null) 'auth': auth.toJson(),
+        });
 
     return IdServerUnbindResult.values.firstWhere(
-      (i) => describeEnum(i) == response['id_server_unbind_result'],
+      (i) => describeEnum(i) == response.jsonObject['id_server_unbind_result'],
     );
   }
 
   Future<bool> usernameAvailable(String username) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/register/available',
-      query: {
+      queryParameters: {
         'username': username,
       },
     );
-    return response['available'];
+    return response.jsonObject['available'];
   }
 
   /// Gets a list of the third party identifiers that the homeserver has
@@ -489,10 +423,10 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.0#get-matrix-client-r0-register-available
   Future<List<ThirdPartyIdentifier>> requestThirdPartyIdentifiers() async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/account/3pid',
     );
-    return (response['threepids'] as List)
+    return (response.jsonObject['threepids'] as List)
         .map((item) => ThirdPartyIdentifier.fromJson(item))
         .toList();
   }
@@ -506,7 +440,7 @@ class MatrixApi {
     String sid, {
     AuthenticationData auth,
   }) async {
-    await request(RequestType.POST, '/client/r0/account/3pid/add', data: {
+    await request(RequestMethod.post, '/client/r0/account/3pid/add', json: {
       'sid': sid,
       'client_secret': clientSecret,
       if (auth != null) 'auth': auth.toJson(),
@@ -522,7 +456,7 @@ class MatrixApi {
     String idServer,
     String idAccessToken,
   ) async {
-    await request(RequestType.POST, '/client/r0/account/3pid/bind', data: {
+    await request(RequestMethod.post, '/client/r0/account/3pid/bind', json: {
       'sid': sid,
       'client_secret': clientSecret,
       'id_server': idServer,
@@ -539,14 +473,14 @@ class MatrixApi {
     String idServer,
   }) async {
     final response = await request(
-        RequestType.POST, '/client/r0/account/3pid/delete',
-        data: {
+        RequestMethod.post, '/client/r0/account/3pid/delete',
+        json: {
           'address': address,
           'medium': describeEnum(medium),
           if (idServer != null) 'id_server': idServer,
         });
     return IdServerUnbindResult.values.firstWhere(
-      (i) => describeEnum(i) == response['id_server_unbind_result'],
+      (i) => describeEnum(i) == response.jsonObject['id_server_unbind_result'],
     );
   }
 
@@ -558,14 +492,14 @@ class MatrixApi {
     String idServer,
   ) async {
     final response = await request(
-        RequestType.POST, '/client/r0/account/3pid/unbind',
-        data: {
+        RequestMethod.post, '/client/r0/account/3pid/unbind',
+        json: {
           'address': address,
           'medium': describeEnum(medium),
           'id_server': idServer,
         });
     return IdServerUnbindResult.values.firstWhere(
-      (i) => describeEnum(i) == response['id_server_unbind_result'],
+      (i) => describeEnum(i) == response.jsonObject['id_server_unbind_result'],
     );
   }
 
@@ -580,8 +514,8 @@ class MatrixApi {
     String idAccessToken,
   }) async {
     final response = await request(
-        RequestType.POST, '/client/r0/account/3pid/email/requestToken',
-        data: {
+        RequestMethod.post, '/client/r0/account/3pid/email/requestToken',
+        json: {
           'email': email,
           'send_attempt': sendAttempt,
           'client_secret': clientSecret,
@@ -589,7 +523,7 @@ class MatrixApi {
           if (idServer != null) 'id_server': idServer,
           if (idAccessToken != null) 'id_access_token': idAccessToken,
         });
-    return RequestTokenResponse.fromJson(response);
+    return RequestTokenResponse.fromJson(response.jsonObject);
   }
 
   /// This API should be used to request validation tokens when adding a phone number to an account.
@@ -604,8 +538,8 @@ class MatrixApi {
     String idAccessToken,
   }) async {
     final response = await request(
-        RequestType.POST, '/client/r0/account/3pid/msisdn/requestToken',
-        data: {
+        RequestMethod.post, '/client/r0/account/3pid/msisdn/requestToken',
+        json: {
           'country': country,
           'phone_number': phoneNumber,
           'send_attempt': sendAttempt,
@@ -614,27 +548,27 @@ class MatrixApi {
           if (idServer != null) 'id_server': idServer,
           if (idAccessToken != null) 'id_access_token': idAccessToken,
         });
-    return RequestTokenResponse.fromJson(response);
+    return RequestTokenResponse.fromJson(response.jsonObject);
   }
 
   /// Gets information about the owner of a given access token.
   /// https://matrix.org/docs/spec/client_server/r0.6.0#get-matrix-client-r0-account-whoami
   Future<String> whoAmI() async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/account/whoami',
     );
-    return response['user_id'];
+    return response.jsonObject['user_id'];
   }
 
   /// Gets information about the server's supported feature set and other relevant capabilities.
   /// https://matrix.org/docs/spec/client_server/r0.6.0#get-matrix-client-r0-capabilities
   Future<ServerCapabilities> requestServerCapabilities() async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/capabilities',
     );
-    return ServerCapabilities.fromJson(response['capabilities']);
+    return ServerCapabilities.fromJson(response.jsonObject['capabilities']);
   }
 
   /// Uploads a new filter definition to the homeserver. Returns a filter ID that may be used
@@ -645,21 +579,21 @@ class MatrixApi {
     Filter filter,
   ) async {
     final response = await request(
-      RequestType.POST,
+      RequestMethod.post,
       '/client/r0/user/${Uri.encodeComponent(userId)}/filter',
-      data: filter.toJson(),
+      json: filter.toJson(),
     );
-    return response['filter_id'];
+    return response.jsonObject['filter_id'];
   }
 
   /// Download a filter
   /// https://matrix.org/docs/spec/client_server/r0.6.0#post-matrix-client-r0-user-userid-filter
   Future<Filter> downloadFilter(String userId, String filterId) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/user/${Uri.encodeComponent(userId)}/filter/${Uri.encodeComponent(filterId)}',
     );
-    return Filter.fromJson(response);
+    return Filter.fromJson(response.jsonObject);
   }
 
   /// Synchronise the client's state with the latest state on the server. Clients use this API when
@@ -674,9 +608,9 @@ class MatrixApi {
     int timeout,
   }) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/sync',
-      query: {
+      queryParameters: {
         if (filter != null) 'filter': filter,
         if (since != null) 'since': since,
         if (fullState != null) 'full_state': fullState.toString(),
@@ -684,7 +618,7 @@ class MatrixApi {
         if (timeout != null) 'timeout': timeout.toString(),
       },
     );
-    return SyncUpdate.fromJson(response);
+    return SyncUpdate.fromJson(response.jsonObject);
   }
 
   /// Get a single event based on roomId/eventId. You must have permission to
@@ -692,10 +626,10 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.0#get-matrix-client-r0-rooms-roomid-event-eventid
   Future<MatrixEvent> requestEvent(String roomId, String eventId) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/rooms/${Uri.encodeComponent(roomId)}/event/${Uri.encodeComponent(eventId)}',
     );
-    return MatrixEvent.fromJson(response);
+    return MatrixEvent.fromJson(response.jsonObject);
   }
 
   /// Looks up the contents of a state event in a room. If the user is joined to the room then the
@@ -711,22 +645,20 @@ class MatrixApi {
       url += Uri.encodeComponent(stateKey);
     }
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       url,
     );
-    return response;
+    return response.jsonObject;
   }
 
   /// Get the state events for the current state of a room.
   /// https://matrix.org/docs/spec/client_server/r0.6.0#get-matrix-client-r0-rooms-roomid-state
   Future<List<MatrixEvent>> requestStates(String roomId) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/rooms/${Uri.encodeComponent(roomId)}/state',
     );
-    return (response['chunk'] as List)
-        .map((i) => MatrixEvent.fromJson(i))
-        .toList();
+    return response.jsonArray.map((i) => MatrixEvent.fromJson(i)).toList();
   }
 
   /// Get the list of members for this room.
@@ -738,16 +670,16 @@ class MatrixApi {
     Membership notMembership,
   }) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/rooms/${Uri.encodeComponent(roomId)}/members',
-      query: {
+      queryParameters: {
         if (at != null) 'at': at,
         if (membership != null) 'membership': describeEnum(membership),
         if (notMembership != null)
           'not_membership': describeEnum(notMembership),
       },
     );
-    return (response['chunk'] as List)
+    return (response.jsonObject['chunk'] as List)
         .map((i) => MatrixEvent.fromJson(i))
         .toList();
   }
@@ -756,10 +688,10 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.0#get-matrix-client-r0-rooms-roomid-joined-members
   Future<Map<String, Profile>> requestJoinedMembers(String roomId) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/rooms/${Uri.encodeComponent(roomId)}/joined_members',
     );
-    return (response['joined'] as Map).map(
+    return (response.jsonObject['joined'] as Map).map(
       (k, v) => MapEntry(k, Profile.fromJson(v)),
     );
   }
@@ -775,16 +707,16 @@ class MatrixApi {
     int limit,
     String filter,
   }) async {
-    final response = await request(RequestType.GET,
+    final response = await request(RequestMethod.get,
         '/client/r0/rooms/${Uri.encodeComponent(roomId)}/messages',
-        query: {
+        queryParameters: {
           'from': from,
           'dir': describeEnum(dir),
           if (to != null) 'to': to,
           if (limit != null) 'limit': limit.toString(),
           if (filter != null) 'filter': filter,
         });
-    return TimelineHistoryResponse.fromJson(response);
+    return TimelineHistoryResponse.fromJson(response.jsonObject);
   }
 
   /// State events can be sent using this endpoint.
@@ -795,10 +727,10 @@ class MatrixApi {
     Map<String, dynamic> content, [
     String stateKey = '',
   ]) async {
-    final response = await request(RequestType.PUT,
+    final response = await request(RequestMethod.put,
         '/client/r0/rooms/${Uri.encodeComponent(roomId)}/state/${Uri.encodeComponent(eventType)}/${Uri.encodeComponent(stateKey)}',
-        data: content);
-    return response['event_id'];
+        json: content);
+    return response.jsonObject['event_id'];
   }
 
   /// This endpoint is used to send a message event to a room.
@@ -811,10 +743,10 @@ class MatrixApi {
     String txnId,
     Map<String, dynamic> content,
   ) async {
-    final response = await request(RequestType.PUT,
+    final response = await request(RequestMethod.put,
         '/client/r0/rooms/${Uri.encodeComponent(roomId)}/send/${Uri.encodeComponent(eventType)}/${Uri.encodeComponent(txnId)}',
-        data: content);
-    return response['event_id'];
+        json: content);
+    return response.jsonObject['event_id'];
   }
 
   /// Strips all information out of an event which isn't critical to the integrity of
@@ -826,12 +758,12 @@ class MatrixApi {
     String txnId, {
     String reason,
   }) async {
-    final response = await request(RequestType.PUT,
+    final response = await request(RequestMethod.put,
         '/client/r0/rooms/${Uri.encodeComponent(roomId)}/redact/${Uri.encodeComponent(eventId)}/${Uri.encodeComponent(txnId)}',
-        data: {
+        json: {
           if (reason != null) 'reason': reason,
         });
-    return response['event_id'];
+    return response.jsonObject['event_id'];
   }
 
   Future<String> createRoom({
@@ -849,7 +781,7 @@ class MatrixApi {
     Map<String, dynamic> powerLevelContentOverride,
   }) async {
     final response =
-        await request(RequestType.POST, '/client/r0/createRoom', data: {
+        await request(RequestMethod.post, '/client/r0/createRoom', json: {
       if (visibility != null) 'visibility': describeEnum(visibility),
       if (roomAliasName != null) 'room_alias_name': roomAliasName,
       if (name != null) 'name': name,
@@ -864,16 +796,16 @@ class MatrixApi {
       if (powerLevelContentOverride != null)
         'power_level_content_override': powerLevelContentOverride,
     });
-    return response['room_id'];
+    return response.jsonObject['room_id'];
   }
 
   /// Create a new mapping from room alias to room ID.
   /// https://matrix.org/docs/spec/client_server/r0.6.1#put-matrix-client-r0-directory-room-roomalias
   Future<void> createRoomAlias(String alias, String roomId) async {
     await request(
-      RequestType.PUT,
+      RequestMethod.put,
       '/client/r0/directory/room/${Uri.encodeComponent(alias)}',
-      data: {'room_id': roomId},
+      json: {'room_id': roomId},
     );
     return;
   }
@@ -882,17 +814,17 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.1#get-matrix-client-r0-directory-room-roomalias
   Future<RoomAliasInformation> requestRoomAliasInformation(String alias) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/directory/room/${Uri.encodeComponent(alias)}',
     );
-    return RoomAliasInformation.fromJson(response);
+    return RoomAliasInformation.fromJson(response.jsonObject);
   }
 
   /// Remove a mapping of room alias to room ID.
   /// https://matrix.org/docs/spec/client_server/r0.6.1#delete-matrix-client-r0-directory-room-roomalias
   Future<void> removeRoomAlias(String alias) async {
     await request(
-      RequestType.DELETE,
+      RequestMethod.delete,
       '/client/r0/directory/room/${Uri.encodeComponent(alias)}',
     );
     return;
@@ -902,29 +834,29 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.1#get-matrix-client-r0-rooms-roomid-aliases
   Future<List<String>> requestRoomAliases(String roomId) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/room/${Uri.encodeComponent(roomId)}/aliases',
     );
-    return List<String>.from(response['aliases']);
+    return List<String>.from(response.jsonObject['aliases']);
   }
 
   /// This API returns a list of the user's current rooms.
   /// https://matrix.org/docs/spec/client_server/r0.6.1#get-matrix-client-r0-joined-rooms
   Future<List<String>> requestJoinedRooms() async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/joined_rooms',
     );
-    return List<String>.from(response['joined_rooms']);
+    return List<String>.from(response.jsonObject['joined_rooms']);
   }
 
   /// This API invites a user to participate in a particular room.
   /// https://matrix.org/docs/spec/client_server/r0.6.1#post-matrix-client-r0-rooms-roomid-invite
   Future<void> inviteToRoom(String roomId, String userId) async {
     await request(
-      RequestType.POST,
+      RequestMethod.post,
       '/client/r0/rooms/${Uri.encodeComponent(roomId)}/invite',
-      data: {
+      json: {
         'user_id': userId,
       },
     );
@@ -941,9 +873,9 @@ class MatrixApi {
     Map<String, dynamic> thirdPidSignedSiganture,
   }) async {
     final response = await request(
-      RequestType.POST,
+      RequestMethod.post,
       '/client/r0/rooms/${Uri.encodeComponent(roomId)}/join',
-      data: {
+      json: {
         if (thirdPidSignedSiganture != null)
           'third_party_signed': {
             'sender': thirdPidSignedSender,
@@ -953,7 +885,7 @@ class MatrixApi {
           }
       },
     );
-    return response['room_id'];
+    return response.jsonObject['room_id'];
   }
 
   /// This API starts a user participating in a particular room, if that user is allowed to participate in that room.
@@ -967,10 +899,10 @@ class MatrixApi {
     Map<String, dynamic> thirdPidSignedSiganture,
   }) async {
     final response = await request(
-      RequestType.POST,
+      RequestMethod.post,
       '/client/r0/join/${Uri.encodeComponent(roomIdOrAlias)}',
-      query: {'server_name': servers ?? []},
-      data: {
+      queryParameters: {'server_name': servers ?? []},
+      json: {
         if (thirdPidSignedSiganture != null)
           'third_party_signed': {
             'sender': thirdPidSignedSender,
@@ -980,14 +912,14 @@ class MatrixApi {
           }
       },
     );
-    return response['room_id'];
+    return response.jsonObject['room_id'];
   }
 
   /// This API stops a user participating in a particular room.
   /// https://matrix.org/docs/spec/client_server/r0.6.1#post-matrix-client-r0-rooms-roomid-leave
   Future<void> leaveRoom(String roomId) async {
     await request(
-      RequestType.POST,
+      RequestMethod.post,
       '/client/r0/rooms/${Uri.encodeComponent(roomId)}/leave',
     );
     return;
@@ -997,7 +929,7 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.1#post-matrix-client-r0-rooms-roomid-forget
   Future<void> forgetRoom(String roomId) async {
     await request(
-      RequestType.POST,
+      RequestMethod.post,
       '/client/r0/rooms/${Uri.encodeComponent(roomId)}/forget',
     );
     return;
@@ -1008,9 +940,9 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.1#post-matrix-client-r0-rooms-roomid-kick
   Future<void> kickFromRoom(String roomId, String userId,
       {String reason}) async {
-    await request(RequestType.POST,
+    await request(RequestMethod.post,
         '/client/r0/rooms/${Uri.encodeComponent(roomId)}/kick',
-        data: {
+        json: {
           'user_id': userId,
           if (reason != null) 'reason': reason,
         });
@@ -1021,9 +953,9 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.1#post-matrix-client-r0-rooms-roomid-ban
   Future<void> banFromRoom(String roomId, String userId,
       {String reason}) async {
-    await request(
-        RequestType.POST, '/client/r0/rooms/${Uri.encodeComponent(roomId)}/ban',
-        data: {
+    await request(RequestMethod.post,
+        '/client/r0/rooms/${Uri.encodeComponent(roomId)}/ban',
+        json: {
           'user_id': userId,
           if (reason != null) 'reason': reason,
         });
@@ -1034,9 +966,9 @@ class MatrixApi {
   /// would otherwise be allowed to join according to its join rules.
   /// https://matrix.org/docs/spec/client_server/r0.6.1#post-matrix-client-r0-rooms-roomid-unban
   Future<void> unbanInRoom(String roomId, String userId) async {
-    await request(RequestType.POST,
+    await request(RequestMethod.post,
         '/client/r0/rooms/${Uri.encodeComponent(roomId)}/unban',
-        data: {
+        json: {
           'user_id': userId,
         });
     return;
@@ -1046,20 +978,20 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.1#get-matrix-client-r0-directory-list-room-roomid
   Future<Visibility> requestRoomVisibility(String roomId) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/directory/list/room/${Uri.encodeComponent(roomId)}',
     );
-    return Visibility.values
-        .firstWhere((v) => describeEnum(v) == response['visibility']);
+    return Visibility.values.firstWhere(
+        (v) => describeEnum(v) == response.jsonObject['visibility']);
   }
 
   /// Sets the visibility of a given room in the server's public room directory.
   /// https://matrix.org/docs/spec/client_server/r0.6.1#put-matrix-client-r0-directory-list-room-roomid
   Future<void> setRoomVisibility(String roomId, Visibility visibility) async {
     await request(
-      RequestType.PUT,
+      RequestMethod.put,
       '/client/r0/directory/list/room/${Uri.encodeComponent(roomId)}',
-      data: {
+      json: {
         'visibility': describeEnum(visibility),
       },
     );
@@ -1074,15 +1006,15 @@ class MatrixApi {
     String server,
   }) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/publicRooms',
-      query: {
+      queryParameters: {
         if (limit != null) 'limit': limit.toString(),
         if (since != null) 'since': since,
         if (server != null) 'server': server,
       },
     );
-    return PublicRoomsResponse.fromJson(response);
+    return PublicRoomsResponse.fromJson(response.jsonObject);
   }
 
   /// Lists the public rooms on the server, with optional filter.
@@ -1096,12 +1028,12 @@ class MatrixApi {
     String thirdPartyInstanceId,
   }) async {
     final response = await request(
-      RequestType.POST,
+      RequestMethod.post,
       '/client/r0/publicRooms',
-      query: {
+      queryParameters: {
         if (server != null) 'server': server,
       },
-      data: {
+      json: {
         if (limit != null) 'limit': limit,
         if (since != null) 'since': since,
         if (includeAllNetworks != null)
@@ -1114,7 +1046,7 @@ class MatrixApi {
           },
       },
     );
-    return PublicRoomsResponse.fromJson(response);
+    return PublicRoomsResponse.fromJson(response.jsonObject);
   }
 
   /// Performs a search for users. The homeserver may determine which subset of users are searched,
@@ -1127,14 +1059,14 @@ class MatrixApi {
     int limit,
   }) async {
     final response = await request(
-      RequestType.POST,
+      RequestMethod.post,
       '/client/r0/user_directory/search',
-      data: {
+      json: {
         'search_term': searchTerm,
         if (limit != null) 'limit': limit,
       },
     );
-    return UserSearchResult.fromJson(response);
+    return UserSearchResult.fromJson(response.jsonObject);
   }
 
   /// This API sets the given user's display name. You must have permission to
@@ -1142,9 +1074,9 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.1#put-matrix-client-r0-profile-userid-displayname
   Future<void> setDisplayname(String userId, String displayname) async {
     await request(
-      RequestType.PUT,
+      RequestMethod.put,
       '/client/r0/profile/${Uri.encodeComponent(userId)}/displayname',
-      data: {
+      json: {
         'displayname': displayname,
       },
     );
@@ -1156,10 +1088,10 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.1#get-matrix-client-r0-profile-userid-displayname
   Future<String> requestDisplayname(String userId) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/profile/${Uri.encodeComponent(userId)}/displayname',
     );
-    return response['displayname'];
+    return response.jsonObject['displayname'];
   }
 
   /// This API sets the given user's avatar URL. You must have permission to set
@@ -1167,9 +1099,9 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.1#put-matrix-client-r0-profile-userid-avatar-url
   Future<void> setAvatarUrl(String userId, Uri avatarUrl) async {
     await request(
-      RequestType.PUT,
+      RequestMethod.put,
       '/client/r0/profile/${Uri.encodeComponent(userId)}/avatar_url',
-      data: {
+      json: {
         'avatar_url': avatarUrl.toString(),
       },
     );
@@ -1181,10 +1113,10 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.1#get-matrix-client-r0-profile-userid-avatar-url
   Future<Uri> requestAvatarUrl(String userId) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/profile/${Uri.encodeComponent(userId)}/avatar_url',
     );
-    return Uri.parse(response['avatar_url']);
+    return Uri.parse(response.jsonObject['avatar_url']);
   }
 
   /// Get the combined profile information for this user. This API may be used to fetch the user's
@@ -1192,20 +1124,20 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.1#get-matrix-client-r0-profile-userid-avatar-url
   Future<Profile> requestProfile(String userId) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/profile/${Uri.encodeComponent(userId)}',
     );
-    return Profile.fromJson(response);
+    return Profile.fromJson(response.jsonObject);
   }
 
   /// This API provides credentials for the client to use when initiating calls.
   /// https://matrix.org/docs/spec/client_server/r0.6.1#get-matrix-client-r0-voip-turnserver
   Future<TurnServerCredentials> requestTurnServerCredentials() async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/voip/turnServer',
     );
-    return TurnServerCredentials.fromJson(response);
+    return TurnServerCredentials.fromJson(response.jsonObject);
   }
 
   /// This tells the server that the user is typing for the next N milliseconds
@@ -1218,9 +1150,9 @@ class MatrixApi {
     bool typing, {
     int timeout,
   }) async {
-    await request(RequestType.PUT,
+    await request(RequestMethod.put,
         '/client/r0/rooms/${Uri.encodeComponent(roomId)}/typing/${Uri.encodeComponent(userId)}',
-        data: {
+        json: {
           'typing': typing,
           if (timeout != null) 'timeout': timeout,
         });
@@ -1232,7 +1164,7 @@ class MatrixApi {
   ///
   Future<void> sendReceiptMarker(String roomId, String eventId) async {
     await request(
-      RequestType.POST,
+      RequestMethod.post,
       '/client/r0/rooms/${Uri.encodeComponent(roomId)}/receipt/m.read/${Uri.encodeComponent(eventId)}',
     );
     return;
@@ -1243,9 +1175,9 @@ class MatrixApi {
   Future<void> sendReadMarker(String roomId, String eventId,
       {String readReceiptLocationEventId}) async {
     await request(
-      RequestType.POST,
+      RequestMethod.post,
       '/client/r0/rooms/${Uri.encodeComponent(roomId)}/read_markers',
-      data: {
+      json: {
         'm.fully_read': eventId,
         if (readReceiptLocationEventId != null)
           'm.read': readReceiptLocationEventId,
@@ -1264,9 +1196,9 @@ class MatrixApi {
     String statusMsg,
   }) async {
     await request(
-      RequestType.PUT,
+      RequestMethod.put,
       '/client/r0/presence/${Uri.encodeComponent(userId)}/status',
-      data: {
+      json: {
         'presence': describeEnum(presenceType),
         if (statusMsg != null) 'status_msg': statusMsg,
       },
@@ -1278,10 +1210,10 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.1#get-matrix-client-r0-presence-userid-status
   Future<PresenceContent> requestPresence(String userId) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/presence/${Uri.encodeComponent(userId)}/status',
     );
-    return PresenceContent.fromJson(response);
+    return PresenceContent.fromJson(response.jsonObject);
   }
 
   /// Uploads a file with the name [fileName] as base64 encoded to the server
@@ -1292,7 +1224,7 @@ class MatrixApi {
     fileName = fileName.split('/').last;
     final length = file.length;
     var headers = <String, String>{};
-    headers['Authorization'] = 'Bearer $accessToken';
+    headers['Authorization'] = 'Bearer $bearerToken';
     headers['Content-Type'] =
         contentType ?? lookupMimeType(fileName, headerBytes: file);
     headers['Content-Length'] = length.toString();
@@ -1352,9 +1284,9 @@ class MatrixApi {
     Map<String, Map<String, Map<String, dynamic>>> messages,
   ) async {
     await request(
-      RequestType.PUT,
+      RequestMethod.put,
       '/client/r0/sendToDevice/${Uri.encodeComponent(eventType)}/${Uri.encodeComponent(txnId)}',
-      data: {
+      json: {
         'messages': messages,
       },
     );
@@ -1365,10 +1297,10 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.1#get-matrix-client-r0-devices
   Future<List<Device>> requestDevices() async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/devices',
     );
-    return (response['devices'] as List)
+    return (response.jsonObject['devices'] as List)
         .map((i) => Device.fromJson(i))
         .toList();
   }
@@ -1377,18 +1309,18 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.1#get-matrix-client-r0-devices-deviceid
   Future<Device> requestDevice(String deviceId) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/devices/${Uri.encodeComponent(deviceId)}',
     );
-    return Device.fromJson(response);
+    return Device.fromJson(response.jsonObject);
   }
 
   /// Updates the metadata on the given device.
   /// https://matrix.org/docs/spec/client_server/r0.6.1#put-matrix-client-r0-devices-deviceid
   Future<void> setDeviceMetadata(String deviceId, {String displayName}) async {
-    await request(
-        RequestType.PUT, '/client/r0/devices/${Uri.encodeComponent(deviceId)}',
-        data: {
+    await request(RequestMethod.put,
+        '/client/r0/devices/${Uri.encodeComponent(deviceId)}',
+        json: {
           if (displayName != null) 'display_name': displayName,
         });
     return;
@@ -1397,9 +1329,9 @@ class MatrixApi {
   /// Deletes the given device, and invalidates any access token associated with it.
   /// https://matrix.org/docs/spec/client_server/r0.6.1#delete-matrix-client-r0-devices-deviceid
   Future<void> deleteDevice(String deviceId, {AuthenticationData auth}) async {
-    await request(RequestType.DELETE,
+    await request(RequestMethod.delete,
         '/client/r0/devices/${Uri.encodeComponent(deviceId)}',
-        data: {
+        json: {
           if (auth != null) 'auth': auth.toJson(),
         });
     return;
@@ -1409,7 +1341,7 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.1#post-matrix-client-r0-delete-devices
   Future<void> deleteDevices(List<String> deviceIds,
       {AuthenticationData auth}) async {
-    await request(RequestType.POST, '/client/r0/delete_devices', data: {
+    await request(RequestMethod.post, '/client/r0/delete_devices', json: {
       'devices': deviceIds,
       if (auth != null) 'auth': auth.toJson(),
     });
@@ -1423,9 +1355,9 @@ class MatrixApi {
       Map<String, dynamic> oneTimeKeys,
       Map<String, dynamic> fallbackKeys}) async {
     final response = await request(
-      RequestType.POST,
+      RequestMethod.post,
       '/client/r0/keys/upload',
-      data: {
+      json: {
         if (deviceKeys != null) 'device_keys': deviceKeys.toJson(),
         if (oneTimeKeys != null) 'one_time_keys': oneTimeKeys,
         if (fallbackKeys != null) ...{
@@ -1434,7 +1366,7 @@ class MatrixApi {
         },
       },
     );
-    return Map<String, int>.from(response['one_time_key_counts']);
+    return Map<String, int>.from(response.jsonObject['one_time_key_counts']);
   }
 
   /// Returns the current devices and identity keys for the given users.
@@ -1445,15 +1377,15 @@ class MatrixApi {
     String token,
   }) async {
     final response = await request(
-      RequestType.POST,
+      RequestMethod.post,
       '/client/r0/keys/query',
-      data: {
+      json: {
         'device_keys': deviceKeys,
         if (timeout != null) 'timeout': timeout,
         if (token != null) 'token': token,
       },
     );
-    return KeysQueryResponse.fromJson(response);
+    return KeysQueryResponse.fromJson(response.jsonObject);
   }
 
   /// Claims one-time keys for use in pre-key messages.
@@ -1463,26 +1395,26 @@ class MatrixApi {
     int timeout,
   }) async {
     final response = await request(
-      RequestType.POST,
+      RequestMethod.post,
       '/client/r0/keys/claim',
-      data: {
+      json: {
         'one_time_keys': oneTimeKeys,
         if (timeout != null) 'timeout': timeout,
       },
     );
-    return OneTimeKeysClaimResponse.fromJson(response);
+    return OneTimeKeysClaimResponse.fromJson(response.jsonObject);
   }
 
   /// Gets a list of users who have updated their device identity keys since a previous sync token.
   /// https://matrix.org/docs/spec/client_server/r0.6.1#post-matrix-client-r0-keys-upload
   Future<DeviceListsUpdate> requestDeviceListsUpdate(
       String from, String to) async {
-    final response =
-        await request(RequestType.GET, '/client/r0/keys/changes', query: {
-      'from': from,
-      'to': to,
-    });
-    return DeviceListsUpdate.fromJson(response);
+    final response = await request(RequestMethod.get, '/client/r0/keys/changes',
+        queryParameters: {
+          'from': from,
+          'to': to,
+        });
+    return DeviceListsUpdate.fromJson(response.jsonObject);
   }
 
   /// Uploads your own cross-signing keys.
@@ -1494,9 +1426,9 @@ class MatrixApi {
     AuthenticationData auth,
   }) async {
     await request(
-      RequestType.POST,
+      RequestMethod.post,
       '/client/unstable/keys/device_signing/upload',
-      data: {
+      json: {
         if (masterKey != null) 'master_key': masterKey.toJson(),
         if (selfSigningKey != null) 'self_signing_key': selfSigningKey.toJson(),
         if (userSigningKey != null) 'user_signing_key': userSigningKey.toJson(),
@@ -1529,21 +1461,21 @@ class MatrixApi {
       }
     }
     final response = await request(
-      RequestType.POST,
+      RequestMethod.post,
       '/client/r0/keys/signatures/upload',
-      data: payload,
+      json: payload,
     );
-    return UploadKeySignaturesResponse.fromJson(response);
+    return UploadKeySignaturesResponse.fromJson(response.jsonObject);
   }
 
   /// Gets all currently active pushers for the authenticated user.
   /// https://matrix.org/docs/spec/client_server/r0.6.1#get-matrix-client-r0-pushers
   Future<List<Pusher>> requestPushers() async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/pushers',
     );
-    return (response['pushers'] as List)
+    return (response.jsonObject['pushers'] as List)
         .map((i) => Pusher.fromJson(i))
         .toList();
   }
@@ -1558,9 +1490,9 @@ class MatrixApi {
       data['append'] = append;
     }
     await request(
-      RequestType.POST,
+      RequestMethod.post,
       '/client/r0/pushers/set',
-      data: data,
+      json: data,
     );
     return;
   }
@@ -1574,15 +1506,15 @@ class MatrixApi {
     String only,
   }) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/notifications',
-      query: {
+      queryParameters: {
         if (from != null) 'from': from,
         if (limit != null) 'limit': limit.toString(),
         if (only != null) 'only': only,
       },
     );
-    return NotificationsQueryResponse.fromJson(response);
+    return NotificationsQueryResponse.fromJson(response.jsonObject);
   }
 
   /// Retrieve all push rulesets for this user. Clients can "drill-down"
@@ -1591,10 +1523,10 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.1#get-matrix-client-r0-pushrules
   Future<PushRuleSet> requestPushRules() async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/pushrules',
     );
-    return PushRuleSet.fromJson(response['global']);
+    return PushRuleSet.fromJson(response.jsonObject['global']);
   }
 
   /// Retrieve a single specified push rule.
@@ -1605,10 +1537,10 @@ class MatrixApi {
     String ruleId,
   ) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/pushrules/${Uri.encodeComponent(scope)}/${Uri.encodeComponent(describeEnum(kind))}/${Uri.encodeComponent(ruleId)}',
     );
-    return PushRule.fromJson(response);
+    return PushRule.fromJson(response.jsonObject);
   }
 
   /// This endpoint removes the push rule defined in the path.
@@ -1619,7 +1551,7 @@ class MatrixApi {
     String ruleId,
   ) async {
     await request(
-      RequestType.DELETE,
+      RequestMethod.delete,
       '/client/r0/pushrules/${Uri.encodeComponent(scope)}/${Uri.encodeComponent(describeEnum(kind))}/${Uri.encodeComponent(ruleId)}',
     );
     return;
@@ -1638,13 +1570,13 @@ class MatrixApi {
     List<PushConditions> conditions,
     String pattern,
   }) async {
-    await request(RequestType.PUT,
+    await request(RequestMethod.put,
         '/client/r0/pushrules/${Uri.encodeComponent(scope)}/${Uri.encodeComponent(describeEnum(kind))}/${Uri.encodeComponent(ruleId)}',
-        query: {
+        queryParameters: {
           if (before != null) 'before': before,
           if (after != null) 'after': after,
         },
-        data: {
+        json: {
           'actions': actions.map(describeEnum).toList(),
           if (conditions != null)
             'conditions': conditions.map((c) => c.toJson()).toList(),
@@ -1661,10 +1593,10 @@ class MatrixApi {
     String ruleId,
   ) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/pushrules/${Uri.encodeComponent(scope)}/${Uri.encodeComponent(describeEnum(kind))}/${Uri.encodeComponent(ruleId)}/enabled',
     );
-    return response['enabled'];
+    return response.jsonObject['enabled'];
   }
 
   /// This endpoint allows clients to enable or disable the specified push rule.
@@ -1676,9 +1608,9 @@ class MatrixApi {
     bool enabled,
   ) async {
     await request(
-      RequestType.PUT,
+      RequestMethod.put,
       '/client/r0/pushrules/${Uri.encodeComponent(scope)}/${Uri.encodeComponent(describeEnum(kind))}/${Uri.encodeComponent(ruleId)}/enabled',
-      data: {'enabled': enabled},
+      json: {'enabled': enabled},
     );
     return;
   }
@@ -1691,10 +1623,10 @@ class MatrixApi {
     String ruleId,
   ) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/pushrules/${Uri.encodeComponent(scope)}/${Uri.encodeComponent(describeEnum(kind))}/${Uri.encodeComponent(ruleId)}/actions',
     );
-    return (response['actions'] as List)
+    return (response.jsonObject['actions'] as List)
         .map((i) =>
             PushRuleAction.values.firstWhere((a) => describeEnum(a) == i))
         .toList();
@@ -1709,9 +1641,9 @@ class MatrixApi {
     List<PushRuleAction> actions,
   ) async {
     await request(
-      RequestType.PUT,
+      RequestMethod.put,
       '/client/r0/pushrules/${Uri.encodeComponent(scope)}/${Uri.encodeComponent(describeEnum(kind))}/${Uri.encodeComponent(ruleId)}/actions',
-      data: {'actions': actions.map((a) => describeEnum(a)).toList()},
+      json: {'actions': actions.map((a) => describeEnum(a)).toList()},
     );
     return;
   }
@@ -1721,11 +1653,12 @@ class MatrixApi {
   /// Please note: The specification is not 100% clear what it is expecting and sending here.
   /// So we stick with pure json until we have more information.
   Future<Map<String, dynamic>> globalSearch(Map<String, dynamic> query) async {
-    return await request(
-      RequestType.POST,
+    return (await request(
+      RequestMethod.post,
       '/client/r0/search',
-      data: query,
-    );
+      json: query,
+    ))
+        .jsonObject;
   }
 
   /// This will listen for new events related to a particular room and return them to the
@@ -1737,22 +1670,22 @@ class MatrixApi {
     String roomId,
   }) async {
     final response =
-        await request(RequestType.GET, '/client/r0/events', query: {
+        await request(RequestMethod.get, '/client/r0/events', queryParameters: {
       if (from != null) 'from': from,
       if (timeout != null) 'timeout': timeout.toString(),
       if (roomId != null) 'roomId': roomId,
     });
-    return EventsSyncUpdate.fromJson(response);
+    return EventsSyncUpdate.fromJson(response.jsonObject);
   }
 
   /// List the tags set by a user on a room.
   /// https://matrix.org/docs/spec/client_server/r0.6.1#get-matrix-client-r0-user-userid-rooms-roomid-tags
   Future<Map<String, Tag>> requestRoomTags(String userId, String roomId) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/user/${Uri.encodeComponent(userId)}/rooms/${Uri.encodeComponent(roomId)}/tags',
     );
-    return (response['tags'] as Map).map(
+    return (response.jsonObject['tags'] as Map).map(
       (k, v) => MapEntry(k, Tag.fromJson(v)),
     );
   }
@@ -1765,9 +1698,9 @@ class MatrixApi {
     String tag, {
     double order,
   }) async {
-    await request(RequestType.PUT,
+    await request(RequestMethod.put,
         '/client/r0/user/${Uri.encodeComponent(userId)}/rooms/${Uri.encodeComponent(roomId)}/tags/${Uri.encodeComponent(tag)}',
-        data: {
+        json: {
           if (order != null) 'order': order,
         });
     return;
@@ -1777,7 +1710,7 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.1#put-matrix-client-r0-user-userid-rooms-roomid-tags-tag
   Future<void> removeRoomTag(String userId, String roomId, String tag) async {
     await request(
-      RequestType.DELETE,
+      RequestMethod.delete,
       '/client/r0/user/${Uri.encodeComponent(userId)}/rooms/${Uri.encodeComponent(roomId)}/tags/${Uri.encodeComponent(tag)}',
     );
     return;
@@ -1792,9 +1725,9 @@ class MatrixApi {
     Map<String, dynamic> content,
   ) async {
     await request(
-      RequestType.PUT,
+      RequestMethod.put,
       '/client/r0/user/${Uri.encodeComponent(userId)}/account_data/${Uri.encodeComponent(type)}',
-      data: content,
+      json: content,
     );
     return;
   }
@@ -1805,10 +1738,11 @@ class MatrixApi {
     String userId,
     String type,
   ) async {
-    return await request(
-      RequestType.GET,
+    return (await request(
+      RequestMethod.get,
       '/client/r0/user/${Uri.encodeComponent(userId)}/account_data/${Uri.encodeComponent(type)}',
-    );
+    ))
+        .jsonObject;
   }
 
   /// Set some account_data for the client on a given room. This config is only visible to the user that set
@@ -1821,9 +1755,9 @@ class MatrixApi {
     Map<String, dynamic> content,
   ) async {
     await request(
-      RequestType.PUT,
+      RequestMethod.put,
       '/client/r0/user/${Uri.encodeComponent(userId)}/rooms/${Uri.encodeComponent(roomId)}/account_data/${Uri.encodeComponent(type)}',
-      data: content,
+      json: content,
     );
     return;
   }
@@ -1835,20 +1769,21 @@ class MatrixApi {
     String roomId,
     String type,
   ) async {
-    return await request(
-      RequestType.GET,
+    return (await request(
+      RequestMethod.get,
       '/client/r0/user/${Uri.encodeComponent(userId)}/rooms/${Uri.encodeComponent(roomId)}/account_data/${Uri.encodeComponent(type)}',
-    );
+    ))
+        .jsonObject;
   }
 
   /// Gets information about a particular user.
   /// https://matrix.org/docs/spec/client_server/r0.6.1#get-matrix-client-r0-admin-whois-userid
   Future<WhoIsInfo> requestWhoIsInfo(String userId) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/admin/whois/${Uri.encodeComponent(userId)}',
     );
-    return WhoIsInfo.fromJson(response);
+    return WhoIsInfo.fromJson(response.jsonObject);
   }
 
   /// This API returns a number of events that happened just before and after the specified event.
@@ -1860,13 +1795,13 @@ class MatrixApi {
     int limit,
     String filter,
   }) async {
-    final response = await request(RequestType.GET,
+    final response = await request(RequestMethod.get,
         '/client/r0/rooms/${Uri.encodeComponent(roomId)}/context/${Uri.encodeComponent(eventId)}',
-        query: {
+        queryParameters: {
           if (filter != null) 'filter': filter,
           if (limit != null) 'limit': limit.toString(),
         });
-    return EventContext.fromJson(response);
+    return EventContext.fromJson(response.jsonObject);
   }
 
   /// Reports an event as inappropriate to the server, which may then notify the appropriate people.
@@ -1877,9 +1812,9 @@ class MatrixApi {
     String reason,
     int score,
   ) async {
-    await request(RequestType.POST,
+    await request(RequestMethod.post,
         '/client/r0/rooms/${Uri.encodeComponent(roomId)}/report/${Uri.encodeComponent(eventId)}',
-        data: {
+        json: {
           'reason': reason,
           'score': score,
         });
@@ -1891,20 +1826,21 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.1#get-matrix-client-r0-thirdparty-protocols
   Future<Map<String, SupportedProtocol>> requestSupportedProtocols() async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/thirdparty/protocols',
     );
-    return response.map((k, v) => MapEntry(k, SupportedProtocol.fromJson(v)));
+    return response.jsonObject
+        .map((k, v) => MapEntry(k, SupportedProtocol.fromJson(v)));
   }
 
   /// Fetches the metadata from the homeserver about a particular third party protocol.
   /// https://matrix.org/docs/spec/client_server/r0.6.1#get-matrix-client-r0-thirdparty-protocol-protocol
   Future<SupportedProtocol> requestSupportedProtocol(String protocol) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/thirdparty/protocol/${Uri.encodeComponent(protocol)}',
     );
-    return SupportedProtocol.fromJson(response);
+    return SupportedProtocol.fromJson(response.jsonObject);
   }
 
   /// Requesting this endpoint with a valid protocol name results in a list of successful
@@ -1913,10 +1849,10 @@ class MatrixApi {
   Future<List<ThirdPartyLocation>> requestThirdPartyLocations(
       String protocol) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/thirdparty/location/${Uri.encodeComponent(protocol)}',
     );
-    return (response['chunk'] as List)
+    return response.jsonArray
         .map((i) => ThirdPartyLocation.fromJson(i))
         .toList();
   }
@@ -1926,12 +1862,10 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.1#get-matrix-client-r0-thirdparty-user-protocol
   Future<List<ThirdPartyUser>> requestThirdPartyUsers(String protocol) async {
     final response = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/r0/thirdparty/user/${Uri.encodeComponent(protocol)}',
     );
-    return (response['chunk'] as List)
-        .map((i) => ThirdPartyUser.fromJson(i))
-        .toList();
+    return response.jsonArray.map((i) => ThirdPartyUser.fromJson(i)).toList();
   }
 
   /// Retrieve an array of third party network locations from a Matrix room alias.
@@ -1939,11 +1873,11 @@ class MatrixApi {
   Future<List<ThirdPartyLocation>> requestThirdPartyLocationsByAlias(
       String alias) async {
     final response = await request(
-        RequestType.GET, '/client/r0/thirdparty/location',
-        query: {
+        RequestMethod.get, '/client/r0/thirdparty/location',
+        queryParameters: {
           'alias': alias,
         });
-    return (response['chunk'] as List)
+    return response.jsonArray
         .map((i) => ThirdPartyLocation.fromJson(i))
         .toList();
   }
@@ -1952,29 +1886,28 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/r0.6.1#get-matrix-client-r0-thirdparty-user
   Future<List<ThirdPartyUser>> requestThirdPartyUsersByUserId(
       String userId) async {
-    final response =
-        await request(RequestType.GET, '/client/r0/thirdparty/user', query: {
-      'userid': userId,
-    });
-    return (response['chunk'] as List)
-        .map((i) => ThirdPartyUser.fromJson(i))
-        .toList();
+    final response = await request(
+        RequestMethod.get, '/client/r0/thirdparty/user',
+        queryParameters: {
+          'userid': userId,
+        });
+    return response.jsonArray.map((i) => ThirdPartyUser.fromJson(i)).toList();
   }
 
   Future<OpenIdCredentials> requestOpenIdCredentials(String userId) async {
     final response = await request(
-      RequestType.POST,
+      RequestMethod.post,
       '/client/r0/user/${Uri.encodeComponent(userId)}/openid/request_token',
-      data: {},
+      json: {},
     );
-    return OpenIdCredentials.fromJson(response);
+    return OpenIdCredentials.fromJson(response.jsonObject);
   }
 
   Future<void> upgradeRoom(String roomId, String version) async {
     await request(
-      RequestType.POST,
+      RequestMethod.post,
       '/client/r0/rooms/${Uri.encodeComponent(roomId)}/upgrade',
-      data: {'new_version': version},
+      json: {'new_version': version},
     );
     return;
   }
@@ -1984,14 +1917,14 @@ class MatrixApi {
   Future<String> createRoomKeysBackup(
       RoomKeysAlgorithmType algorithm, Map<String, dynamic> authData) async {
     final ret = await request(
-      RequestType.POST,
+      RequestMethod.post,
       '/client/unstable/room_keys/version',
-      data: {
+      json: {
         'algorithm': algorithm.algorithmString,
         'auth_data': authData,
       },
     );
-    return ret['version'];
+    return ret.jsonObject['version'];
   }
 
   /// Gets a room key backup
@@ -2002,10 +1935,10 @@ class MatrixApi {
       url += '/${Uri.encodeComponent(version)}';
     }
     final ret = await request(
-      RequestType.GET,
+      RequestMethod.get,
       url,
     );
-    return RoomKeysVersionResponse.fromJson(ret);
+    return RoomKeysVersionResponse.fromJson(ret.jsonObject);
   }
 
   /// Updates a room key backup
@@ -2013,9 +1946,9 @@ class MatrixApi {
   Future<void> updateRoomKeysBackup(String version,
       RoomKeysAlgorithmType algorithm, Map<String, dynamic> authData) async {
     await request(
-      RequestType.PUT,
+      RequestMethod.put,
       '/client/unstable/room_keys/version/${Uri.encodeComponent(version)}',
-      data: {
+      json: {
         'algorithm': algorithm.algorithmString,
         'auth_data': authData,
         'version': version,
@@ -2027,7 +1960,7 @@ class MatrixApi {
   /// https://matrix.org/docs/spec/client_server/unstable#delete-matrix-client-r0-room-keys-version-version
   Future<void> deleteRoomKeysBackup(String version) async {
     await request(
-      RequestType.DELETE,
+      RequestMethod.delete,
       '/client/unstable/room_keys/version/${Uri.encodeComponent(version)}',
     );
   }
@@ -2037,12 +1970,12 @@ class MatrixApi {
   Future<RoomKeysUpdateResponse> storeRoomKeysSingleKey(String roomId,
       String sessionId, String version, RoomKeysSingleKey session) async {
     final ret = await request(
-      RequestType.PUT,
+      RequestMethod.put,
       '/client/unstable/room_keys/keys/${Uri.encodeComponent(roomId)}/${Uri.encodeComponent(sessionId)}',
-      query: {'version': version},
-      data: session.toJson(),
+      queryParameters: {'version': version},
+      json: session.toJson(),
     );
-    return RoomKeysUpdateResponse.fromJson(ret);
+    return RoomKeysUpdateResponse.fromJson(ret.jsonObject);
   }
 
   /// Gets a single room key
@@ -2050,11 +1983,11 @@ class MatrixApi {
   Future<RoomKeysSingleKey> getRoomKeysSingleKey(
       String roomId, String sessionId, String version) async {
     final ret = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/unstable/room_keys/keys/${Uri.encodeComponent(roomId)}/${Uri.encodeComponent(sessionId)}',
-      query: {'version': version},
+      queryParameters: {'version': version},
     );
-    return RoomKeysSingleKey.fromJson(ret);
+    return RoomKeysSingleKey.fromJson(ret.jsonObject);
   }
 
   /// Deletes a single room key
@@ -2062,11 +1995,11 @@ class MatrixApi {
   Future<RoomKeysUpdateResponse> deleteRoomKeysSingleKey(
       String roomId, String sessionId, String version) async {
     final ret = await request(
-      RequestType.DELETE,
+      RequestMethod.delete,
       '/client/unstable/room_keys/keys/${Uri.encodeComponent(roomId)}/${Uri.encodeComponent(sessionId)}',
-      query: {'version': version},
+      queryParameters: {'version': version},
     );
-    return RoomKeysUpdateResponse.fromJson(ret);
+    return RoomKeysUpdateResponse.fromJson(ret.jsonObject);
   }
 
   /// Stores room keys for a room
@@ -2074,23 +2007,23 @@ class MatrixApi {
   Future<RoomKeysUpdateResponse> storeRoomKeysRoom(
       String roomId, String version, RoomKeysRoom keys) async {
     final ret = await request(
-      RequestType.PUT,
+      RequestMethod.put,
       '/client/unstable/room_keys/keys/${Uri.encodeComponent(roomId)}',
-      query: {'version': version},
-      data: keys.toJson(),
+      queryParameters: {'version': version},
+      json: keys.toJson(),
     );
-    return RoomKeysUpdateResponse.fromJson(ret);
+    return RoomKeysUpdateResponse.fromJson(ret.jsonObject);
   }
 
   /// Gets room keys for a room
   /// https://matrix.org/docs/spec/client_server/unstable#get-matrix-client-r0-room-keys-keys-roomid
   Future<RoomKeysRoom> getRoomKeysRoom(String roomId, String version) async {
     final ret = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/unstable/room_keys/keys/${Uri.encodeComponent(roomId)}',
-      query: {'version': version},
+      queryParameters: {'version': version},
     );
-    return RoomKeysRoom.fromJson(ret);
+    return RoomKeysRoom.fromJson(ret.jsonObject);
   }
 
   /// Deletes room keys for a room
@@ -2098,11 +2031,11 @@ class MatrixApi {
   Future<RoomKeysUpdateResponse> deleteRoomKeysRoom(
       String roomId, String version) async {
     final ret = await request(
-      RequestType.DELETE,
+      RequestMethod.delete,
       '/client/unstable/room_keys/keys/${Uri.encodeComponent(roomId)}',
-      query: {'version': version},
+      queryParameters: {'version': version},
     );
-    return RoomKeysUpdateResponse.fromJson(ret);
+    return RoomKeysUpdateResponse.fromJson(ret.jsonObject);
   }
 
   /// Store multiple room keys
@@ -2110,33 +2043,33 @@ class MatrixApi {
   Future<RoomKeysUpdateResponse> storeRoomKeys(
       String version, RoomKeys keys) async {
     final ret = await request(
-      RequestType.PUT,
+      RequestMethod.put,
       '/client/unstable/room_keys/keys',
-      query: {'version': version},
-      data: keys.toJson(),
+      queryParameters: {'version': version},
+      json: keys.toJson(),
     );
-    return RoomKeysUpdateResponse.fromJson(ret);
+    return RoomKeysUpdateResponse.fromJson(ret.jsonObject);
   }
 
   /// get all room keys
   /// https://matrix.org/docs/spec/client_server/unstable#get-matrix-client-r0-room-keys-keys
   Future<RoomKeys> getRoomKeys(String version) async {
     final ret = await request(
-      RequestType.GET,
+      RequestMethod.get,
       '/client/unstable/room_keys/keys',
-      query: {'version': version},
+      queryParameters: {'version': version},
     );
-    return RoomKeys.fromJson(ret);
+    return RoomKeys.fromJson(ret.jsonObject);
   }
 
   /// delete all room keys
   /// https://matrix.org/docs/spec/client_server/unstable#delete-matrix-client-r0-room-keys-keys
   Future<RoomKeysUpdateResponse> deleteRoomKeys(String version) async {
     final ret = await request(
-      RequestType.DELETE,
+      RequestMethod.delete,
       '/client/unstable/room_keys/keys',
-      query: {'version': version},
+      queryParameters: {'version': version},
     );
-    return RoomKeysUpdateResponse.fromJson(ret);
+    return RoomKeysUpdateResponse.fromJson(ret.jsonObject);
   }
 }

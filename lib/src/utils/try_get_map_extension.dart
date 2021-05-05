@@ -24,7 +24,7 @@
 import 'logs.dart';
 
 extension TryGetMapExtension on Map<String, dynamic> {
-  T tryGet<T>(String key, [T fallbackValue]) {
+  T? tryGet<T>(String key, [T? fallbackValue]) {
     final value = this[key];
     if (value != null && !(value is T)) {
       Logs().w(
@@ -39,7 +39,7 @@ extension TryGetMapExtension on Map<String, dynamic> {
     return value;
   }
 
-  List<T> tryGetList<T>(String key, [List<T> fallbackValue]) {
+  List<T>? tryGetList<T>(String key, [List<T>? fallbackValue]) {
     final value = this[key];
     if (value != null && !(value is List)) {
       Logs().w(
@@ -60,7 +60,7 @@ extension TryGetMapExtension on Map<String, dynamic> {
     }
   }
 
-  Map<A, B> tryGetMap<A, B>(String key, [Map<A, B> fallbackValue]) {
+  Map<A, B>? tryGetMap<A, B>(String key, [Map<A, B>? fallbackValue]) {
     final value = this[key];
     if (value != null && !(value is Map)) {
       Logs().w(

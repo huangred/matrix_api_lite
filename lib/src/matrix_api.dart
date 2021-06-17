@@ -29,6 +29,7 @@ import 'package:http/http.dart' as http;
 import 'package:mime/mime.dart';
 
 import '../matrix_api_lite.dart';
+import 'UserAgentClient.dart';
 import 'model/auth/authentication_data.dart';
 import 'model/auth/authentication_types.dart';
 import 'model/device.dart';
@@ -97,22 +98,23 @@ class MatrixApi {
   /// timeout which is usually 30 seconds.
   int syncTimeoutSec;
 
-  http.Client httpClient = http.Client();
+  http.Client httpClient;
 
   bool get _testMode =>
       homeserver.toString() == 'https://fakeserver.notexisting';
 
   int _timeoutFactor = 1;
 
-  MatrixApi({
-    this.homeserver,
-    this.accessToken,
-    http.Client httpClient,
-    this.syncTimeoutSec = 30,
-  }) {
-    if (httpClient != null) {
-      this.httpClient = httpClient;
-    }
+  MatrixApi(
+      {this.homeserver,
+      this.accessToken,
+      http.Client httpClient,
+      this.syncTimeoutSec = 30,
+      String userAgent}) {
+    final innerHtmlClient = httpClient ?? http.Client();
+    this.httpClient = userAgent != null
+        ? UserAgentClient(userAgent, innerHtmlClient)
+        : innerHtmlClient;
   }
 
   /// Used for all Matrix json requests using the [c2s API](https://matrix.org/docs/spec/client_server/r0.6.0.html).

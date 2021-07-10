@@ -1,17 +1,17 @@
 /* MIT License
-* 
+*
 * Copyright (C) 2019, 2020, 2021 Famedly GmbH
-* 
+*
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
 * in the Software without restriction, including without limitation the rights
 * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 * copies of the Software, and to permit persons to whom the Software is
 * furnished to do so, subject to the following conditions:
-* 
+*
 * The above copyright notice and this permission notice shall be included in all
 * copies or substantial portions of the Software.
-* 
+*
 * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -33,23 +33,30 @@ class PushRuleSet {
 
   PushRuleSet.fromJson(Map<String, dynamic> json) {
     if (json['content'] != null) {
-      content =
-          (json['content'] as List).map((i) => PushRule.fromJson(i)).toList();
+      content = (json['content'] as List)
+          .map((i) => PushRule.fromJson(i.cast<String, dynamic>()))
+          .toList();
     }
     if (json['override'] != null) {
-      override =
-          (json['override'] as List).map((i) => PushRule.fromJson(i)).toList();
+      override = (json['override'] as List)
+          .map((i) => PushRule.fromJson(i.cast<String, dynamic>()))
+          .toList();
     }
     if (json['room'] != null) {
-      room = (json['room'] as List).map((i) => PushRule.fromJson(i)).toList();
+      room = (json['room'] as List)
+          .map((i) => PushRule.fromJson(i.map<String, dynamic>(
+              (k, v) => MapEntry<String, dynamic>(k.toString(), v))))
+          .toList();
     }
     if (json['sender'] != null) {
-      sender =
-          (json['sender'] as List).map((i) => PushRule.fromJson(i)).toList();
+      sender = (json['sender'] as List)
+          .map((i) => PushRule.fromJson(i.cast<String, dynamic>()))
+          .toList();
     }
     if (json['underride'] != null) {
-      underride =
-          (json['underride'] as List).map((i) => PushRule.fromJson(i)).toList();
+      underride = (json['underride'] as List)
+          .map((i) => PushRule.fromJson(i.cast<String, dynamic>()))
+          .toList();
     }
   }
 
@@ -90,7 +97,7 @@ class PushRule {
     ruleId = json['rule_id'];
     conditions = json['conditions'] != null
         ? (json['conditions'] as List)
-            .map((i) => PushConditions.fromJson(i))
+            .map((i) => PushConditions.fromJson(i.cast<String, dynamic>()))
             .toList()
         : null;
   }

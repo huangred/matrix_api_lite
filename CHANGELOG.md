@@ -1,3 +1,6 @@
+## 0.3.4
+- fix: Parse error for openid expires_in with newer synapse 
+
 ## 0.3.3
 - fix: Log filter in wrong direction
 

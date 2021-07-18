@@ -1,3 +1,7 @@
+## 0.3.5
+- feat: Add image pack event content models
+- fix: Parsing push rules didn't work
+
 ## 0.3.4
 - fix: Parse error for openid expires_in with newer synapse 
 

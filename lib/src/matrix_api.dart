@@ -26,6 +26,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:mime/mime.dart';
 
 import '../matrix_api_lite.dart';
 import 'generated/api.dart';
@@ -185,5 +186,23 @@ class MatrixApi extends Api {
       data: data,
     );
     return;
+  }
+
+  /// uploadContent
+  ///
+  /// [filename] The name of the file being uploaded
+  ///
+  /// [content] The content to be uploaded.
+  ///
+  /// [contentType] The content type of the file being uploaded
+  ///
+  /// returns `content_uri`:
+  /// The [MXC URI](https://spec.matrix.org/unstable/client-server-api/#matrix-content-mxc-uris) to the uploaded content.
+  @override
+  Future<Uri> uploadContent(Uint8List content,
+      {String? filename, String? contentType}) async {
+    contentType ??= lookupMimeType(filename ?? '', headerBytes: content);
+    return super
+        .uploadContent(content, filename: filename, contentType: contentType);
   }
 }

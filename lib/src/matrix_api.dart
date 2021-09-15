@@ -186,4 +186,39 @@ class MatrixApi extends Api {
     );
     return;
   }
+
+  /// Returns the `SpacesSummary` for a given [roomId].
+  ///
+  /// Implementation of MSC2946.
+  /// https://github.com/matrix-org/matrix-doc/blob/211e5e68da76feb52b90871d781d0a37106770b1/proposals/2946-spaces-summary.md
+  ///
+  /// [maxRoomsPerSpace] The maximum number of rooms/subspaces to return for a
+  /// given space, if negative unbounded. default: -1.
+  ///
+  /// [autoJoinOnly] If true, only return m.space.child events with
+  /// auto_join:true, default: false, which returns all events.
+  ///
+  /// [limit] The maximum number of events to return, server can override this,
+  /// default: 100.
+  ///
+  /// [batch] A token to use if this is a subsequent HTTP hit, default: "".
+  Future<SpacesSummary> requestSpacesSummary(
+    String roomId, {
+    int? maxRoomsPerSpace,
+    bool? autoJoinOnly,
+    int? limit,
+    String? batch,
+  }) async {
+    final response = await request(
+      RequestType.POST,
+      '/client/r0/rooms/${Uri.encodeComponent(roomId)}/spaces',
+      data: {
+        if (maxRoomsPerSpace != null) 'max_rooms_per_space': maxRoomsPerSpace,
+        if (autoJoinOnly != null) 'auto_join_only': autoJoinOnly,
+        if (limit != null) 'limit': limit,
+        if (batch != null) 'batch': batch,
+      },
+    );
+    return SpacesSummary.fromJson(response);
+  }
 }

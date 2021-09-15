@@ -59,6 +59,7 @@ export 'src/model/presence.dart';
 export 'src/model/presence_content.dart';
 export 'src/model/room_creation_types.dart';
 export 'src/model/room_summary.dart';
+export 'src/model/spaces_summary.dart';
 export 'src/model/stripped_state_event.dart';
 export 'src/model/sync_update.dart';
 export 'src/utils/logs.dart';

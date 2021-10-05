@@ -6,6 +6,7 @@ import '../model/sync_update.dart';
 import '../model/matrix_event.dart';
 
 import 'internal.dart';
+import '../utils/map_copy_extension.dart';
 
 class _NameSource {
   final String source;
@@ -1281,15 +1282,20 @@ class PusherData {
   PusherData({
     this.format,
     this.url,
+    this.additionalProperties = const {},
   });
 
   PusherData.fromJson(Map<String, dynamic> json)
       : format = ((v) => v != null ? v as String : null)(json['format']),
-        url = ((v) => v != null ? Uri.parse(v) : null)(json['url']);
+        url = ((v) => v != null ? Uri.parse(v) : null)(json['url']),
+        additionalProperties = Map.fromEntries(json.entries
+            .where((e) => !['format', 'url'].contains(e.key))
+            .map((e) => MapEntry(e.key, e.value as dynamic)));
   Map<String, dynamic> toJson() {
     final format = this.format;
     final url = this.url;
     return {
+      ...additionalProperties,
       if (format != null) 'format': format,
       if (url != null) 'url': url.toString(),
     };
@@ -1302,6 +1308,8 @@ class PusherData {
   /// Required if `kind` is `http`. The URL to use to send
   /// notifications to.
   Uri? url;
+
+  Map<String, dynamic> additionalProperties;
 }
 
 @_NameSource('spec')
@@ -3239,16 +3247,21 @@ class GetVersionsResponse {
   GetVersionsResponse({
     this.unstableFeatures,
     required this.versions,
+    this.additionalProperties = const {},
   });
 
   GetVersionsResponse.fromJson(Map<String, dynamic> json)
       : unstableFeatures = ((v) => v != null
             ? (v as Map<String, dynamic>).map((k, v) => MapEntry(k, v as bool))
             : null)(json['unstable_features']),
-        versions = (json['versions'] as List).map((v) => v as String).toList();
+        versions = (json['versions'] as List).map((v) => v as String).toList(),
+        additionalProperties = Map.fromEntries(json.entries
+            .where((e) => !['unstable_features', 'versions'].contains(e.key))
+            .map((e) => MapEntry(e.key, e.value as dynamic)));
   Map<String, dynamic> toJson() {
     final unstableFeatures = this.unstableFeatures;
     return {
+      ...additionalProperties,
       if (unstableFeatures != null)
         'unstable_features': unstableFeatures.map((k, v) => MapEntry(k, v)),
       'versions': versions.map((v) => v).toList(),
@@ -3262,6 +3275,8 @@ class GetVersionsResponse {
 
   /// The supported versions.
   List<String> versions;
+
+  Map<String, dynamic> additionalProperties;
 }
 
 @_NameSource('rule override generated')

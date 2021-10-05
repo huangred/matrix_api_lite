@@ -1,0 +1,20 @@
+# Protocol section
+version: "RFC7252"
+deduplicator: "MarkAndSweep" # CropRotayion or Noop
+ackTimeout: 30000 # ms
+
+poolUdpConnectionsByClient: true
+
+dtls:
+  use: true
+  ciphers: aRSA
+
+# Logging section
+
+# Target is none or console
+logTarget: "console"
+# Log levels
+logError: true
+logDebug: false
+logWarn: true
+logInfo: false

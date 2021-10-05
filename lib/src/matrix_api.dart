@@ -23,8 +23,8 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
+import 'package:coap/coap.dart';
 import 'package:http/http.dart' as http;
 
 import '../matrix_api_lite.dart';
@@ -32,6 +32,8 @@ import 'generated/api.dart';
 import 'model/matrix_connection_exception.dart';
 import 'model/matrix_exception.dart';
 import 'model/matrix_keys.dart';
+import 'utils/low_bandwidth_helper.dart';
+import 'utils/streamed_response_extension.dart';
 
 enum RequestType { GET, POST, PUT, DELETE }
 
@@ -39,30 +41,99 @@ class MatrixApi extends Api {
   /// The homeserver this client is communicating with.
   Uri? get homeserver => baseUri;
 
-  set homeserver(Uri? uri) => baseUri = uri;
+  set homeserver(Uri? uri) {
+    if (_lb != null) {
+      // existing lb, TODO: cleanup
+    }
+    baseUri = uri;
+    _lb = null;
+  }
+
+  void setLowBandwidth(
+      {int coapVersion = -1, int cborVersion = -1, required int port, CoapClient? client}) {
+    if (_lb != null) {
+      // exisiting lb, TODO: cleanup
+    }
+    _lb = LowBandwidthHelper(
+      coapVersion: coapVersion,
+      cborVersion: cborVersion,
+      port: port,
+      host: homeserver?.host ?? '',
+      accessToken: accessToken,
+      api: this,
+      client: client,
+    );
+  }
 
   /// This is the access token for the matrix client. When it is undefined, then
   /// the user needs to sign in first.
   String? get accessToken => bearerToken;
 
-  set accessToken(String? token) => bearerToken = token;
-
-  @override
-  Never unexpectedResponse(http.BaseResponse response, Uint8List responseBody) {
-    if (response.statusCode >= 400 && response.statusCode < 500) {
-      throw MatrixException.fromJson(json.decode(utf8.decode(responseBody)));
-    }
-    super.unexpectedResponse(response, responseBody);
+  set accessToken(String? token) {
+    bearerToken = token;
+    _lb?.accessToken = token;
   }
+
+  http.Client httpClient;
+  String? bearerToken;
+
+  LowBandwidthHelper? _lb;
 
   MatrixApi({
     Uri? homeserver,
     String? accessToken,
     http.Client? httpClient,
-  }) : super(
-            httpClient: httpClient,
-            baseUri: homeserver,
-            bearerToken: accessToken);
+  })  : httpClient = httpClient ?? http.Client(),
+        bearerToken = accessToken,
+        super(baseUri: homeserver);
+
+  @override
+  Future<http.StreamedResponse> doRawRequest(
+      {required http.Request request,
+      Map<String, dynamic>? json,
+      required bool authenticated}) async {
+    if (authenticated) {
+      request.headers['Authorization'] = 'Bearer $bearerToken';
+    }
+    if (json != null) {
+      request.headers['Content-Type'] = 'application/json';
+      request.bodyBytes = utf8.encode(jsonEncode(json));
+    }
+    http.StreamedResponse response;
+    try {
+      response = await httpClient.send(request);
+    } catch (e, s) {
+      throw MatrixConnectionException(e, s);
+    }
+    if (response.statusCode >= 500) {
+      throw Exception(await response.toDecodedString());
+    }
+    if (response.statusCode >= 400 && response.statusCode < 500) {
+      throw MatrixException.fromJson(await response.toJson());
+    }
+    return response;
+  }
+
+  @override
+  Future<Map<String, dynamic>> doRequest(
+      {required http.Request request,
+      Map<String, dynamic>? json,
+      required bool authenticated}) async {
+    if (_lb != null) {
+      return await _lb!.doRequest(
+        method: request.method,
+        url: request.url,
+        json: json,
+      );
+    } else {
+      final response = await doRawRequest(
+        request: request,
+        json: json,
+        authenticated: authenticated,
+      );
+      return await response.toJson();
+    }
+  }
 
   /// Used for all Matrix json requests using the [c2s API](https://matrix.org/docs/spec/client_server/r0.6.0.html).
   ///

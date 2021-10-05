@@ -13,15 +13,17 @@ import 'package:http/http.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
-class Api {
-  Client httpClient;
+abstract class Api {
   Uri? baseUri;
-  String? bearerToken;
-  Api({Client? httpClient, this.baseUri, this.bearerToken})
-      : httpClient = httpClient ?? Client();
-  Never unexpectedResponse(BaseResponse response, Uint8List body) {
-    throw Exception('http error response');
-  }
+  Api({this.baseUri});
+  Future<Map<String, dynamic>> doRequest(
+      {required Request request,
+      Map<String, dynamic>? json,
+      required bool authenticated});
+  Future<StreamedResponse> doRawRequest(
+      {required Request request,
+      Map<String, dynamic>? json,
+      required bool authenticated});
 
   /// Gets discovery information about the domain. The file may include
   /// additional keys, which MUST follow the Java package naming convention,
@@ -34,12 +36,11 @@ class Api {
   Future<DiscoveryInformation> getWellknown() async {
     final requestUri = Uri(path: '.well-known/matrix/client');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return DiscoveryInformation.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: false,
+    );
+    return DiscoveryInformation.fromJson(response);
   }
 
   /// Gets a list of the third party identifiers that the homeserver has
@@ -55,15 +56,13 @@ class Api {
   Future<List<ThirdPartyIdentifier>?> getAccount3PIDs() async {
     final requestUri = Uri(path: '_matrix/client/r0/account/3pid');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
     return ((v) => v != null
         ? (v as List).map((v) => ThirdPartyIdentifier.fromJson(v)).toList()
-        : null)(json['threepids']);
+        : null)(response['threepids']);
   }
 
   /// Adds contact information to the user's account.
@@ -82,16 +81,13 @@ class Api {
   Future<void> post3PIDs(ThreePidCredentials threePidCreds) async {
     final requestUri = Uri(path: '_matrix/client/r0/account/3pid');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'three_pid_creds': threePidCreds.toJson(),
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
+    final response = await doRequest(
+      request: request,
+      json: {
+        'three_pid_creds': threePidCreds.toJson(),
+      },
+      authenticated: true,
+    );
     return null;
   }
 
@@ -113,19 +109,16 @@ class Api {
       {AuthenticationData? auth}) async {
     final requestUri = Uri(path: '_matrix/client/r0/account/3pid/add');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (auth != null) 'auth': auth.toJson(),
-      'client_secret': clientSecret,
-      'sid': sid,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (auth != null) 'auth': auth.toJson(),
+        'client_secret': clientSecret,
+        'sid': sid,
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// Binds a 3PID to the user's account through the specified identity server.
@@ -147,20 +140,17 @@ class Api {
       String idServer, String sid) async {
     final requestUri = Uri(path: '_matrix/client/r0/account/3pid/bind');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'client_secret': clientSecret,
-      'id_access_token': idAccessToken,
-      'id_server': idServer,
-      'sid': sid,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        'client_secret': clientSecret,
+        'id_access_token': idAccessToken,
+        'id_server': idServer,
+        'sid': sid,
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// Removes a third party identifier from the user's account. This might not
@@ -191,25 +181,22 @@ class Api {
       {String? idServer}) async {
     final requestUri = Uri(path: '_matrix/client/r0/account/3pid/delete');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'address': address,
-      if (idServer != null) 'id_server': idServer,
-      'medium': {
-        ThirdPartyIdentifierMedium.email: 'email',
-        ThirdPartyIdentifierMedium.msisdn: 'msisdn'
-      }[medium]!,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
+    final response = await doRequest(
+      request: request,
+      json: {
+        'address': address,
+        if (idServer != null) 'id_server': idServer,
+        'medium': {
+          ThirdPartyIdentifierMedium.email: 'email',
+          ThirdPartyIdentifierMedium.msisdn: 'msisdn'
+        }[medium]!,
+      },
+      authenticated: true,
+    );
     return {
       'no-support': IdServerUnbindResult.noSupport,
       'success': IdServerUnbindResult.success
-    }[json['id_server_unbind_result']]!;
+    }[response['id_server_unbind_result']]!;
   }
 
   /// The homeserver must check that the given email address is **not**
@@ -260,21 +247,19 @@ class Api {
     final requestUri =
         Uri(path: '_matrix/client/r0/account/3pid/email/requestToken');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'client_secret': clientSecret,
-      'email': email,
-      if (nextLink != null) 'next_link': nextLink,
-      'send_attempt': sendAttempt,
-      if (idAccessToken != null) 'id_access_token': idAccessToken,
-      if (idServer != null) 'id_server': idServer,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return RequestTokenResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        'client_secret': clientSecret,
+        'email': email,
+        if (nextLink != null) 'next_link': nextLink,
+        'send_attempt': sendAttempt,
+        if (idAccessToken != null) 'id_access_token': idAccessToken,
+        if (idServer != null) 'id_server': idServer,
+      },
+      authenticated: false,
+    );
+    return RequestTokenResponse.fromJson(response);
   }
 
   /// The homeserver must check that the given phone number is **not**
@@ -327,22 +312,20 @@ class Api {
     final requestUri =
         Uri(path: '_matrix/client/r0/account/3pid/msisdn/requestToken');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'client_secret': clientSecret,
-      'country': country,
-      if (nextLink != null) 'next_link': nextLink,
-      'phone_number': phoneNumber,
-      'send_attempt': sendAttempt,
-      if (idAccessToken != null) 'id_access_token': idAccessToken,
-      if (idServer != null) 'id_server': idServer,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return RequestTokenResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        'client_secret': clientSecret,
+        'country': country,
+        if (nextLink != null) 'next_link': nextLink,
+        'phone_number': phoneNumber,
+        'send_attempt': sendAttempt,
+        if (idAccessToken != null) 'id_access_token': idAccessToken,
+        if (idServer != null) 'id_server': idServer,
+      },
+      authenticated: false,
+    );
+    return RequestTokenResponse.fromJson(response);
   }
 
   /// Removes a user's third party identifier from the provided identity server
@@ -372,25 +355,22 @@ class Api {
       {String? idServer}) async {
     final requestUri = Uri(path: '_matrix/client/r0/account/3pid/unbind');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'address': address,
-      if (idServer != null) 'id_server': idServer,
-      'medium': {
-        ThirdPartyIdentifierMedium.email: 'email',
-        ThirdPartyIdentifierMedium.msisdn: 'msisdn'
-      }[medium]!,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
+    final response = await doRequest(
+      request: request,
+      json: {
+        'address': address,
+        if (idServer != null) 'id_server': idServer,
+        'medium': {
+          ThirdPartyIdentifierMedium.email: 'email',
+          ThirdPartyIdentifierMedium.msisdn: 'msisdn'
+        }[medium]!,
+      },
+      authenticated: true,
+    );
     return {
       'no-support': IdServerUnbindResult.noSupport,
       'success': IdServerUnbindResult.success
-    }[json['id_server_unbind_result']]!;
+    }[response['id_server_unbind_result']]!;
   }
 
   /// Deactivate the user's account, removing all ability for the user to
@@ -430,21 +410,18 @@ class Api {
       {AuthenticationData? auth, String? idServer}) async {
     final requestUri = Uri(path: '_matrix/client/r0/account/deactivate');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (auth != null) 'auth': auth.toJson(),
-      if (idServer != null) 'id_server': idServer,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (auth != null) 'auth': auth.toJson(),
+        if (idServer != null) 'id_server': idServer,
+      },
+      authenticated: true,
+    );
     return {
       'no-support': IdServerUnbindResult.noSupport,
       'success': IdServerUnbindResult.success
-    }[json['id_server_unbind_result']]!;
+    }[response['id_server_unbind_result']]!;
   }
 
   /// Changes the password for an account on this homeserver.
@@ -474,19 +451,16 @@ class Api {
       {AuthenticationData? auth, bool? logoutDevices}) async {
     final requestUri = Uri(path: '_matrix/client/r0/account/password');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (auth != null) 'auth': auth.toJson(),
-      if (logoutDevices != null) 'logout_devices': logoutDevices,
-      'new_password': newPassword,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (auth != null) 'auth': auth.toJson(),
+        if (logoutDevices != null) 'logout_devices': logoutDevices,
+        'new_password': newPassword,
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// The homeserver must check that the given email address **is
@@ -544,21 +518,19 @@ class Api {
     final requestUri =
         Uri(path: '_matrix/client/r0/account/password/email/requestToken');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'client_secret': clientSecret,
-      'email': email,
-      if (nextLink != null) 'next_link': nextLink,
-      'send_attempt': sendAttempt,
-      if (idAccessToken != null) 'id_access_token': idAccessToken,
-      if (idServer != null) 'id_server': idServer,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return RequestTokenResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        'client_secret': clientSecret,
+        'email': email,
+        if (nextLink != null) 'next_link': nextLink,
+        'send_attempt': sendAttempt,
+        if (idAccessToken != null) 'id_access_token': idAccessToken,
+        if (idServer != null) 'id_server': idServer,
+      },
+      authenticated: false,
+    );
+    return RequestTokenResponse.fromJson(response);
   }
 
   /// The homeserver must check that the given phone number **is
@@ -618,22 +590,20 @@ class Api {
     final requestUri =
         Uri(path: '_matrix/client/r0/account/password/msisdn/requestToken');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'client_secret': clientSecret,
-      'country': country,
-      if (nextLink != null) 'next_link': nextLink,
-      'phone_number': phoneNumber,
-      'send_attempt': sendAttempt,
-      if (idAccessToken != null) 'id_access_token': idAccessToken,
-      if (idServer != null) 'id_server': idServer,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return RequestTokenResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        'client_secret': clientSecret,
+        'country': country,
+        if (nextLink != null) 'next_link': nextLink,
+        'phone_number': phoneNumber,
+        'send_attempt': sendAttempt,
+        if (idAccessToken != null) 'id_access_token': idAccessToken,
+        if (idServer != null) 'id_server': idServer,
+      },
+      authenticated: false,
+    );
+    return RequestTokenResponse.fromJson(response);
   }
 
   /// Gets information about the owner of a given access token.
@@ -647,13 +617,11 @@ class Api {
   Future<TokenOwnerInfo> getTokenOwner() async {
     final requestUri = Uri(path: '_matrix/client/r0/account/whoami');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return TokenOwnerInfo.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return TokenOwnerInfo.fromJson(response);
   }
 
   /// Gets information about a particular user.
@@ -667,13 +635,11 @@ class Api {
     final requestUri = Uri(
         path: '_matrix/client/r0/admin/whois/${Uri.encodeComponent(userId)}');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return WhoIsInfo.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return WhoIsInfo.fromJson(response);
   }
 
   /// Gets information about the server's supported feature set
@@ -685,13 +651,11 @@ class Api {
   Future<Capabilities> getCapabilities() async {
     final requestUri = Uri(path: '_matrix/client/r0/capabilities');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return Capabilities.fromJson(json['capabilities']);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return Capabilities.fromJson(response['capabilities']);
   }
 
   /// Create a new room with various configuration options.
@@ -821,40 +785,37 @@ class Api {
       Visibility? visibility}) async {
     final requestUri = Uri(path: '_matrix/client/r0/createRoom');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (creationContent != null) 'creation_content': creationContent,
-      if (initialState != null)
-        'initial_state': initialState.map((v) => v.toJson()).toList(),
-      if (invite != null) 'invite': invite.map((v) => v).toList(),
-      if (invite3pid != null)
-        'invite_3pid': invite3pid.map((v) => v.toJson()).toList(),
-      if (isDirect != null) 'is_direct': isDirect,
-      if (name != null) 'name': name,
-      if (powerLevelContentOverride != null)
-        'power_level_content_override': powerLevelContentOverride,
-      if (preset != null)
-        'preset': {
-          CreateRoomPreset.privateChat: 'private_chat',
-          CreateRoomPreset.publicChat: 'public_chat',
-          CreateRoomPreset.trustedPrivateChat: 'trusted_private_chat'
-        }[preset]!,
-      if (roomAliasName != null) 'room_alias_name': roomAliasName,
-      if (roomVersion != null) 'room_version': roomVersion,
-      if (topic != null) 'topic': topic,
-      if (visibility != null)
-        'visibility': {
-          Visibility.public: 'public',
-          Visibility.private: 'private'
-        }[visibility]!,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return json['room_id'] as String;
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (creationContent != null) 'creation_content': creationContent,
+        if (initialState != null)
+          'initial_state': initialState.map((v) => v.toJson()).toList(),
+        if (invite != null) 'invite': invite.map((v) => v).toList(),
+        if (invite3pid != null)
+          'invite_3pid': invite3pid.map((v) => v.toJson()).toList(),
+        if (isDirect != null) 'is_direct': isDirect,
+        if (name != null) 'name': name,
+        if (powerLevelContentOverride != null)
+          'power_level_content_override': powerLevelContentOverride,
+        if (preset != null)
+          'preset': {
+            CreateRoomPreset.privateChat: 'private_chat',
+            CreateRoomPreset.publicChat: 'public_chat',
+            CreateRoomPreset.trustedPrivateChat: 'trusted_private_chat'
+          }[preset]!,
+        if (roomAliasName != null) 'room_alias_name': roomAliasName,
+        if (roomVersion != null) 'room_version': roomVersion,
+        if (topic != null) 'topic': topic,
+        if (visibility != null)
+          'visibility': {
+            Visibility.public: 'public',
+            Visibility.private: 'private'
+          }[visibility]!,
+      },
+      authenticated: true,
+    );
+    return response['room_id'] as String;
   }
 
   /// This API endpoint uses the [User-Interactive Authentication API](https://spec.matrix.org/unstable/client-server-api/#user-interactive-authentication-api).
@@ -869,18 +830,15 @@ class Api {
       {AuthenticationData? auth}) async {
     final requestUri = Uri(path: '_matrix/client/r0/delete_devices');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (auth != null) 'auth': auth.toJson(),
-      'devices': devices.map((v) => v).toList(),
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (auth != null) 'auth': auth.toJson(),
+        'devices': devices.map((v) => v).toList(),
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// Gets information about all devices for the current user.
@@ -890,15 +848,13 @@ class Api {
   Future<List<Device>?> getDevices() async {
     final requestUri = Uri(path: '_matrix/client/r0/devices');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
     return ((v) => v != null
         ? (v as List).map((v) => Device.fromJson(v)).toList()
-        : null)(json['devices']);
+        : null)(response['devices']);
   }
 
   /// This API endpoint uses the [User-Interactive Authentication API](https://spec.matrix.org/unstable/client-server-api/#user-interactive-authentication-api).
@@ -913,17 +869,14 @@ class Api {
     final requestUri =
         Uri(path: '_matrix/client/r0/devices/${Uri.encodeComponent(deviceId)}');
     final request = Request('DELETE', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (auth != null) 'auth': auth.toJson(),
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (auth != null) 'auth': auth.toJson(),
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// Gets information on a single device, by device id.
@@ -933,13 +886,11 @@ class Api {
     final requestUri =
         Uri(path: '_matrix/client/r0/devices/${Uri.encodeComponent(deviceId)}');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return Device.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return Device.fromJson(response);
   }
 
   /// Updates the metadata on the given device.
@@ -952,17 +903,14 @@ class Api {
     final requestUri =
         Uri(path: '_matrix/client/r0/devices/${Uri.encodeComponent(deviceId)}');
     final request = Request('PUT', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (displayName != null) 'display_name': displayName,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (displayName != null) 'display_name': displayName,
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// Updates the visibility of a given room on the application service's room
@@ -989,20 +937,17 @@ class Api {
         path:
             '_matrix/client/r0/directory/list/appservice/${Uri.encodeComponent(networkId)}/${Uri.encodeComponent(roomId)}');
     final request = Request('PUT', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'visibility': {
-        Visibility.public: 'public',
-        Visibility.private: 'private'
-      }[visibility]!,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return json as Map<String, dynamic>;
+    final response = await doRequest(
+      request: request,
+      json: {
+        'visibility': {
+          Visibility.public: 'public',
+          Visibility.private: 'private'
+        }[visibility]!,
+      },
+      authenticated: true,
+    );
+    return response as Map<String, dynamic>;
   }
 
   /// Gets the visibility of a given room on the server's public room directory.
@@ -1016,14 +961,13 @@ class Api {
         path:
             '_matrix/client/r0/directory/list/room/${Uri.encodeComponent(roomId)}');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
+    final response = await doRequest(
+      request: request,
+      authenticated: false,
+    );
     return ((v) => v != null
         ? {'public': Visibility.public, 'private': Visibility.private}[v]!
-        : null)(json['visibility']);
+        : null)(response['visibility']);
   }
 
   /// Sets the visibility of a given room in the server's public room
@@ -1043,21 +987,18 @@ class Api {
         path:
             '_matrix/client/r0/directory/list/room/${Uri.encodeComponent(roomId)}');
     final request = Request('PUT', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (visibility != null)
-        'visibility': {
-          Visibility.public: 'public',
-          Visibility.private: 'private'
-        }[visibility]!,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (visibility != null)
+          'visibility': {
+            Visibility.public: 'public',
+            Visibility.private: 'private'
+          }[visibility]!,
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// Remove a mapping of room alias to room ID.
@@ -1078,13 +1019,11 @@ class Api {
         path:
             '_matrix/client/r0/directory/room/${Uri.encodeComponent(roomAlias)}');
     final request = Request('DELETE', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// Requests that the server resolve a room alias to a room ID.
@@ -1099,12 +1038,11 @@ class Api {
         path:
             '_matrix/client/r0/directory/room/${Uri.encodeComponent(roomAlias)}');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return GetRoomIdByAliasResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: false,
+    );
+    return GetRoomIdByAliasResponse.fromJson(response);
   }
 
   /// setRoomAlias
@@ -1117,17 +1055,14 @@ class Api {
         path:
             '_matrix/client/r0/directory/room/${Uri.encodeComponent(roomAlias)}');
     final request = Request('PUT', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'room_id': roomId,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        'room_id': roomId,
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// This will listen for new events and return them to the caller. This will
@@ -1149,13 +1084,11 @@ class Api {
       if (timeout != null) 'timeout': timeout.toString(),
     });
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return EventsSyncUpdate.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return EventsSyncUpdate.fromJson(response);
   }
 
   /// This will listen for new events related to a particular room and return
@@ -1183,13 +1116,11 @@ class Api {
       if (roomId != null) 'room_id': roomId,
     });
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return EventsSyncUpdate.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return EventsSyncUpdate.fromJson(response);
   }
 
   /// Get a single event based on `event_id`. You must have permission to
@@ -1206,13 +1137,11 @@ class Api {
     final requestUri =
         Uri(path: '_matrix/client/r0/events/${Uri.encodeComponent(eventId)}');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return MatrixEvent.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return MatrixEvent.fromJson(response);
   }
 
   /// *Note that this API takes either a room ID or alias, unlike* `/room/{roomId}/join`.
@@ -1251,19 +1180,16 @@ class Api {
             'server_name': serverName.map((v) => v).toList(),
         });
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (reason != null) 'reason': reason,
-      if (thirdPartySigned != null)
-        'third_party_signed': thirdPartySigned.toJson(),
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return json['room_id'] as String;
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (reason != null) 'reason': reason,
+        if (thirdPartySigned != null)
+          'third_party_signed': thirdPartySigned.toJson(),
+      },
+      authenticated: true,
+    );
+    return response['room_id'] as String;
   }
 
   /// This API returns a list of the user's current rooms.
@@ -1273,13 +1199,11 @@ class Api {
   Future<List<String>> getJoinedRooms() async {
     final requestUri = Uri(path: '_matrix/client/r0/joined_rooms');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return (json['joined_rooms'] as List).map((v) => v as String).toList();
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return (response['joined_rooms'] as List).map((v) => v as String).toList();
   }
 
   /// Gets a list of users who have updated their device identity keys since a
@@ -1309,13 +1233,11 @@ class Api {
       'to': to,
     });
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return GetKeysChangesResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return GetKeysChangesResponse.fromJson(response);
   }
 
   /// Claims one-time keys for use in pre-key messages.
@@ -1330,19 +1252,16 @@ class Api {
       {int? timeout}) async {
     final requestUri = Uri(path: '_matrix/client/r0/keys/claim');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'one_time_keys': oneTimeKeys
-          .map((k, v) => MapEntry(k, v.map((k, v) => MapEntry(k, v)))),
-      if (timeout != null) 'timeout': timeout,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ClaimKeysResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        'one_time_keys': oneTimeKeys
+            .map((k, v) => MapEntry(k, v.map((k, v) => MapEntry(k, v)))),
+        if (timeout != null) 'timeout': timeout,
+      },
+      authenticated: true,
+    );
+    return ClaimKeysResponse.fromJson(response);
   }
 
   /// Publishes cross-signing keys for the user.
@@ -1371,20 +1290,17 @@ class Api {
     final requestUri =
         Uri(path: '_matrix/client/unstable/keys/device_signing/upload');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (auth != null) 'auth': auth.toJson(),
-      if (masterKey != null) 'master_key': masterKey.toJson(),
-      if (selfSigningKey != null) 'self_signing_key': selfSigningKey.toJson(),
-      if (userSigningKey != null) 'user_signing_key': userSigningKey.toJson(),
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (auth != null) 'auth': auth.toJson(),
+        if (masterKey != null) 'master_key': masterKey.toJson(),
+        if (selfSigningKey != null) 'self_signing_key': selfSigningKey.toJson(),
+        if (userSigningKey != null) 'user_signing_key': userSigningKey.toJson(),
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// Returns the current devices and identity keys for the given users.
@@ -1404,20 +1320,17 @@ class Api {
       {int? timeout, String? token}) async {
     final requestUri = Uri(path: '_matrix/client/r0/keys/query');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'device_keys':
-          deviceKeys.map((k, v) => MapEntry(k, v.map((v) => v).toList())),
-      if (timeout != null) 'timeout': timeout,
-      if (token != null) 'token': token,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return QueryKeysResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        'device_keys':
+            deviceKeys.map((k, v) => MapEntry(k, v.map((v) => v).toList())),
+        if (timeout != null) 'timeout': timeout,
+        if (token != null) 'token': token,
+      },
+      authenticated: true,
+    );
+    return QueryKeysResponse.fromJson(response);
   }
 
   /// Publishes cross-signing signatures for the user.  The request body is a
@@ -1434,20 +1347,18 @@ class Api {
           Map<String, Map<String, Map<String, dynamic>>> signatures) async {
     final requestUri = Uri(path: '_matrix/client/r0/keys/signatures/upload');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode(signatures));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
+    final response = await doRequest(
+      request: request,
+      json: signatures
+          .map((k, v) => MapEntry(k, v.map((k, v) => MapEntry(k, v)))),
+      authenticated: true,
+    );
     return ((v) => v != null
         ? (v as Map<String, dynamic>).map((k, v) => MapEntry(
             k,
             (v as Map<String, dynamic>)
                 .map((k, v) => MapEntry(k, v as Map<String, dynamic>))))
-        : null)(json['failures']);
+        : null)(response['failures']);
   }
 
   /// *Note that this API takes either a room ID or alias, unlike other membership APIs.*
@@ -1485,17 +1396,14 @@ class Api {
             'server_name': serverName.map((v) => v).toList(),
         });
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (reason != null) 'reason': reason,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return json['room_id'] as String;
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (reason != null) 'reason': reason,
+      },
+      authenticated: true,
+    );
+    return response['room_id'] as String;
   }
 
   /// Gets the homeserver's supported login types to authenticate users. Clients
@@ -1506,14 +1414,13 @@ class Api {
   Future<List<LoginFlow>?> getLoginFlows() async {
     final requestUri = Uri(path: '_matrix/client/r0/login');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
+    final response = await doRequest(
+      request: request,
+      authenticated: false,
+    );
     return ((v) => v != null
         ? (v as List).map((v) => LoginFlow.fromJson(v)).toList()
-        : null)(json['flows']);
+        : null)(response['flows']);
   }
 
   /// Authenticates the user, and issues an access token they can
@@ -1562,28 +1469,26 @@ class Api {
       String? user}) async {
     final requestUri = Uri(path: '_matrix/client/r0/login');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (address != null) 'address': address,
-      if (deviceId != null) 'device_id': deviceId,
-      if (identifier != null) 'identifier': identifier.toJson(),
-      if (initialDeviceDisplayName != null)
-        'initial_device_display_name': initialDeviceDisplayName,
-      if (medium != null) 'medium': medium,
-      if (password != null) 'password': password,
-      if (token != null) 'token': token,
-      'type': {
-        LoginType.mLoginPassword: 'm.login.password',
-        LoginType.mLoginToken: 'm.login.token'
-      }[type]!,
-      if (user != null) 'user': user,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return LoginResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (address != null) 'address': address,
+        if (deviceId != null) 'device_id': deviceId,
+        if (identifier != null) 'identifier': identifier.toJson(),
+        if (initialDeviceDisplayName != null)
+          'initial_device_display_name': initialDeviceDisplayName,
+        if (medium != null) 'medium': medium,
+        if (password != null) 'password': password,
+        if (token != null) 'token': token,
+        'type': {
+          LoginType.mLoginPassword: 'm.login.password',
+          LoginType.mLoginToken: 'm.login.token'
+        }[type]!,
+        if (user != null) 'user': user,
+      },
+      authenticated: false,
+    );
+    return LoginResponse.fromJson(response);
   }
 
   /// Invalidates an existing access token, so that it can no longer be used for
@@ -1592,13 +1497,11 @@ class Api {
   Future<void> logout() async {
     final requestUri = Uri(path: '_matrix/client/r0/logout');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// Invalidates all access tokens for a user, so that they can no longer be used for
@@ -1615,13 +1518,11 @@ class Api {
   Future<void> logoutAll() async {
     final requestUri = Uri(path: '_matrix/client/r0/logout/all');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// This API is used to paginate through the list of events that the
@@ -1643,13 +1544,11 @@ class Api {
       if (only != null) 'only': only,
     });
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return GetNotificationsResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return GetNotificationsResponse.fromJson(response);
   }
 
   /// Get the given user's presence state.
@@ -1660,13 +1559,11 @@ class Api {
         path:
             '_matrix/client/r0/presence/${Uri.encodeComponent(userId)}/status');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return GetPresenceResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return GetPresenceResponse.fromJson(response);
   }
 
   /// This API sets the given user's presence state. When setting the status,
@@ -1685,22 +1582,19 @@ class Api {
         path:
             '_matrix/client/r0/presence/${Uri.encodeComponent(userId)}/status');
     final request = Request('PUT', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'presence': {
-        PresenceType.online: 'online',
-        PresenceType.offline: 'offline',
-        PresenceType.unavailable: 'unavailable'
-      }[presence]!,
-      if (statusMsg != null) 'status_msg': statusMsg,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        'presence': {
+          PresenceType.online: 'online',
+          PresenceType.offline: 'offline',
+          PresenceType.unavailable: 'unavailable'
+        }[presence]!,
+        if (statusMsg != null) 'status_msg': statusMsg,
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// Get the combined profile information for this user. This API may be used
@@ -1713,12 +1607,11 @@ class Api {
     final requestUri =
         Uri(path: '_matrix/client/r0/profile/${Uri.encodeComponent(userId)}');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ProfileInformation.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: false,
+    );
+    return ProfileInformation.fromJson(response);
   }
 
   /// Get the user's avatar URL. This API may be used to fetch the user's
@@ -1734,12 +1627,11 @@ class Api {
         path:
             '_matrix/client/r0/profile/${Uri.encodeComponent(userId)}/avatar_url');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ((v) => v != null ? Uri.parse(v) : null)(json['avatar_url']);
+    final response = await doRequest(
+      request: request,
+      authenticated: false,
+    );
+    return ((v) => v != null ? Uri.parse(v) : null)(response['avatar_url']);
   }
 
   /// This API sets the given user's avatar URL. You must have permission to
@@ -1753,17 +1645,14 @@ class Api {
         path:
             '_matrix/client/r0/profile/${Uri.encodeComponent(userId)}/avatar_url');
     final request = Request('PUT', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (avatarUrl != null) 'avatar_url': avatarUrl.toString(),
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (avatarUrl != null) 'avatar_url': avatarUrl.toString(),
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// Get the user's display name. This API may be used to fetch the user's
@@ -1779,12 +1668,11 @@ class Api {
         path:
             '_matrix/client/r0/profile/${Uri.encodeComponent(userId)}/displayname');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ((v) => v != null ? v as String : null)(json['displayname']);
+    final response = await doRequest(
+      request: request,
+      authenticated: false,
+    );
+    return ((v) => v != null ? v as String : null)(response['displayname']);
   }
 
   /// This API sets the given user's display name. You must have permission to
@@ -1798,17 +1686,14 @@ class Api {
         path:
             '_matrix/client/r0/profile/${Uri.encodeComponent(userId)}/displayname');
     final request = Request('PUT', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (displayname != null) 'displayname': displayname,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (displayname != null) 'displayname': displayname,
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// Lists the public rooms on the server.
@@ -1834,12 +1719,11 @@ class Api {
       if (server != null) 'server': server,
     });
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return GetPublicRoomsResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: false,
+    );
+    return GetPublicRoomsResponse.fromJson(response);
   }
 
   /// Lists the public rooms on the server, with optional filter.
@@ -1876,23 +1760,20 @@ class Api {
       if (server != null) 'server': server,
     });
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (filter != null) 'filter': filter.toJson(),
-      if (includeAllNetworks != null)
-        'include_all_networks': includeAllNetworks,
-      if (limit != null) 'limit': limit,
-      if (since != null) 'since': since,
-      if (thirdPartyInstanceId != null)
-        'third_party_instance_id': thirdPartyInstanceId,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return QueryPublicRoomsResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (filter != null) 'filter': filter.toJson(),
+        if (includeAllNetworks != null)
+          'include_all_networks': includeAllNetworks,
+        if (limit != null) 'limit': limit,
+        if (since != null) 'since': since,
+        if (thirdPartyInstanceId != null)
+          'third_party_instance_id': thirdPartyInstanceId,
+      },
+      authenticated: true,
+    );
+    return QueryPublicRoomsResponse.fromJson(response);
   }
 
   /// Gets all currently active pushers for the authenticated user.
@@ -1902,15 +1783,13 @@ class Api {
   Future<List<Pusher>?> getPushers() async {
     final requestUri = Uri(path: '_matrix/client/r0/pushers');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
     return ((v) => v != null
         ? (v as List).map((v) => Pusher.fromJson(v)).toList()
-        : null)(json['pushers']);
+        : null)(response['pushers']);
   }
 
   /// Retrieve all push rulesets for this user. Clients can "drill-down" on
@@ -1923,13 +1802,11 @@ class Api {
   Future<PushRuleSet> getPushRules() async {
     final requestUri = Uri(path: '_matrix/client/r0/pushrules');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return PushRuleSet.fromJson(json['global']);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return PushRuleSet.fromJson(response['global']);
   }
 
   /// This endpoint removes the push rule defined in the path.
@@ -1953,13 +1830,11 @@ class Api {
       PushRuleKind.content: 'content'
     }[kind]!)}/${Uri.encodeComponent(ruleId)}');
     final request = Request('DELETE', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// Retrieve a single specified push rule.
@@ -1983,13 +1858,11 @@ class Api {
       PushRuleKind.content: 'content'
     }[kind]!)}/${Uri.encodeComponent(ruleId)}');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return PushRule.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return PushRule.fromJson(response);
   }
 
   /// This endpoint allows the creation, modification and deletion of pushers
@@ -2041,20 +1914,17 @@ class Api {
           if (after != null) 'after': after,
         });
     final request = Request('PUT', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'actions': actions.map((v) => v).toList(),
-      if (conditions != null)
-        'conditions': conditions.map((v) => v.toJson()).toList(),
-      if (pattern != null) 'pattern': pattern,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        'actions': actions.map((v) => v).toList(),
+        if (conditions != null)
+          'conditions': conditions.map((v) => v.toJson()).toList(),
+        if (pattern != null) 'pattern': pattern,
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// This endpoint get the actions for the specified push rule.
@@ -2082,13 +1952,11 @@ class Api {
       PushRuleKind.content: 'content'
     }[kind]!)}/${Uri.encodeComponent(ruleId)}/actions');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return (json['actions'] as List).map((v) => v as dynamic).toList();
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return (response['actions'] as List).map((v) => v as dynamic).toList();
   }
 
   /// This endpoint allows clients to change the actions of a push rule.
@@ -2115,17 +1983,14 @@ class Api {
       PushRuleKind.content: 'content'
     }[kind]!)}/${Uri.encodeComponent(ruleId)}/actions');
     final request = Request('PUT', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'actions': actions.map((v) => v).toList(),
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        'actions': actions.map((v) => v).toList(),
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// This endpoint gets whether the specified push rule is enabled.
@@ -2153,13 +2018,11 @@ class Api {
       PushRuleKind.content: 'content'
     }[kind]!)}/${Uri.encodeComponent(ruleId)}/enabled');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return json['enabled'] as bool;
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return response['enabled'] as bool;
   }
 
   /// This endpoint allows clients to enable or disable the specified push rule.
@@ -2185,17 +2048,14 @@ class Api {
       PushRuleKind.content: 'content'
     }[kind]!)}/${Uri.encodeComponent(ruleId)}/enabled');
     final request = Request('PUT', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'enabled': enabled,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        'enabled': enabled,
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// This API endpoint uses the [User-Interactive Authentication API](https://spec.matrix.org/unstable/client-server-api/#user-interactive-authentication-api), except in
@@ -2275,22 +2135,20 @@ class Api {
         'kind': {AccountKind.guest: 'guest', AccountKind.user: 'user'}[kind]!,
     });
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (auth != null) 'auth': auth.toJson(),
-      if (deviceId != null) 'device_id': deviceId,
-      if (inhibitLogin != null) 'inhibit_login': inhibitLogin,
-      if (initialDeviceDisplayName != null)
-        'initial_device_display_name': initialDeviceDisplayName,
-      if (password != null) 'password': password,
-      if (username != null) 'username': username,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return RegisterResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (auth != null) 'auth': auth.toJson(),
+        if (deviceId != null) 'device_id': deviceId,
+        if (inhibitLogin != null) 'inhibit_login': inhibitLogin,
+        if (initialDeviceDisplayName != null)
+          'initial_device_display_name': initialDeviceDisplayName,
+        if (password != null) 'password': password,
+        if (username != null) 'username': username,
+      },
+      authenticated: false,
+    );
+    return RegisterResponse.fromJson(response);
   }
 
   /// Checks to see if a username is available, and valid, for the server.
@@ -2317,12 +2175,11 @@ class Api {
       'username': username,
     });
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ((v) => v != null ? v as bool : null)(json['available']);
+    final response = await doRequest(
+      request: request,
+      authenticated: false,
+    );
+    return ((v) => v != null ? v as bool : null)(response['available']);
   }
 
   /// The homeserver must check that the given email address is **not**
@@ -2369,21 +2226,19 @@ class Api {
     final requestUri =
         Uri(path: '_matrix/client/r0/register/email/requestToken');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'client_secret': clientSecret,
-      'email': email,
-      if (nextLink != null) 'next_link': nextLink,
-      'send_attempt': sendAttempt,
-      if (idAccessToken != null) 'id_access_token': idAccessToken,
-      if (idServer != null) 'id_server': idServer,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return RequestTokenResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        'client_secret': clientSecret,
+        'email': email,
+        if (nextLink != null) 'next_link': nextLink,
+        'send_attempt': sendAttempt,
+        if (idAccessToken != null) 'id_access_token': idAccessToken,
+        if (idServer != null) 'id_server': idServer,
+      },
+      authenticated: false,
+    );
+    return RequestTokenResponse.fromJson(response);
   }
 
   /// The homeserver must check that the given phone number is **not**
@@ -2432,22 +2287,20 @@ class Api {
     final requestUri =
         Uri(path: '_matrix/client/r0/register/msisdn/requestToken');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'client_secret': clientSecret,
-      'country': country,
-      if (nextLink != null) 'next_link': nextLink,
-      'phone_number': phoneNumber,
-      'send_attempt': sendAttempt,
-      if (idAccessToken != null) 'id_access_token': idAccessToken,
-      if (idServer != null) 'id_server': idServer,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return RequestTokenResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        'client_secret': clientSecret,
+        'country': country,
+        if (nextLink != null) 'next_link': nextLink,
+        'phone_number': phoneNumber,
+        'send_attempt': sendAttempt,
+        if (idAccessToken != null) 'id_access_token': idAccessToken,
+        if (idServer != null) 'id_server': idServer,
+      },
+      authenticated: false,
+    );
+    return RequestTokenResponse.fromJson(response);
   }
 
   /// Delete the keys from the backup.
@@ -2459,13 +2312,11 @@ class Api {
       'version': version,
     });
     final request = Request('DELETE', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return RoomKeysUpdateResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return RoomKeysUpdateResponse.fromJson(response);
   }
 
   /// Retrieve the keys from the backup.
@@ -2477,13 +2328,11 @@ class Api {
       'version': version,
     });
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return RoomKeys.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return RoomKeys.fromJson(response);
   }
 
   /// Store several keys in the backup.
@@ -2498,15 +2347,12 @@ class Api {
       'version': version,
     });
     final request = Request('PUT', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode(backupData));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return RoomKeysUpdateResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      json: backupData.toJson(),
+      authenticated: true,
+    );
+    return RoomKeysUpdateResponse.fromJson(response);
   }
 
   /// Delete the keys from the backup for a given room.
@@ -2523,13 +2369,11 @@ class Api {
           'version': version,
         });
     final request = Request('DELETE', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return RoomKeysUpdateResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return RoomKeysUpdateResponse.fromJson(response);
   }
 
   /// Retrieve the keys from the backup for a given room.
@@ -2546,13 +2390,11 @@ class Api {
           'version': version,
         });
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return RoomKeyBackup.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return RoomKeyBackup.fromJson(response);
   }
 
   /// Store several keys in the backup for a given room.
@@ -2571,15 +2413,12 @@ class Api {
           'version': version,
         });
     final request = Request('PUT', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode(backupData));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return RoomKeysUpdateResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      json: backupData.toJson(),
+      authenticated: true,
+    );
+    return RoomKeysUpdateResponse.fromJson(response);
   }
 
   /// Delete a key from the backup.
@@ -2598,13 +2437,11 @@ class Api {
           'version': version,
         });
     final request = Request('DELETE', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return RoomKeysUpdateResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return RoomKeysUpdateResponse.fromJson(response);
   }
 
   /// Retrieve a key from the backup.
@@ -2623,13 +2460,11 @@ class Api {
           'version': version,
         });
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return KeyBackupData.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return KeyBackupData.fromJson(response);
   }
 
   /// Store a key in the backup.
@@ -2650,28 +2485,23 @@ class Api {
           'version': version,
         });
     final request = Request('PUT', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode(data));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return RoomKeysUpdateResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      json: data.toJson(),
+      authenticated: true,
+    );
+    return RoomKeysUpdateResponse.fromJson(response);
   }
 
   /// Get information about the latest backup version.
   Future<GetRoomKeysVersionCurrentResponse> getRoomKeysVersionCurrent() async {
     final requestUri = Uri(path: '_matrix/client/unstable/room_keys/version');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return GetRoomKeysVersionCurrentResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return GetRoomKeysVersionCurrentResponse.fromJson(response);
   }
 
   /// Creates a new backup.
@@ -2688,21 +2518,18 @@ class Api {
       BackupAlgorithm algorithm, Map<String, dynamic> authData) async {
     final requestUri = Uri(path: '_matrix/client/unstable/room_keys/version');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'algorithm': {
-        BackupAlgorithm.mMegolmBackupV1Curve25519AesSha2:
-            'm.megolm_backup.v1.curve25519-aes-sha2'
-      }[algorithm]!,
-      'auth_data': authData,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return json['version'] as String;
+    final response = await doRequest(
+      request: request,
+      json: {
+        'algorithm': {
+          BackupAlgorithm.mMegolmBackupV1Curve25519AesSha2:
+              'm.megolm_backup.v1.curve25519-aes-sha2'
+        }[algorithm]!,
+        'auth_data': authData,
+      },
+      authenticated: true,
+    );
+    return response['version'] as String;
   }
 
   /// Delete an existing key backup. Both the information about the backup,
@@ -2717,13 +2544,11 @@ class Api {
         path:
             '_matrix/client/unstable/room_keys/version/${Uri.encodeComponent(version)}');
     final request = Request('DELETE', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// Get information about an existing backup.
@@ -2737,13 +2562,11 @@ class Api {
         path:
             '_matrix/client/unstable/room_keys/version/${Uri.encodeComponent(version)}');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return GetRoomKeysVersionResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return GetRoomKeysVersionResponse.fromJson(response);
   }
 
   /// Update information about an existing backup.  Only `auth_data` can be modified.
@@ -2765,21 +2588,18 @@ class Api {
         path:
             '_matrix/client/unstable/room_keys/version/${Uri.encodeComponent(version)}');
     final request = Request('PUT', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'algorithm': {
-        BackupAlgorithm.mMegolmBackupV1Curve25519AesSha2:
-            'm.megolm_backup.v1.curve25519-aes-sha2'
-      }[algorithm]!,
-      'auth_data': authData,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        'algorithm': {
+          BackupAlgorithm.mMegolmBackupV1Curve25519AesSha2:
+              'm.megolm_backup.v1.curve25519-aes-sha2'
+        }[algorithm]!,
+        'auth_data': authData,
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// Get a list of aliases maintained by the local server for the
@@ -2807,13 +2627,11 @@ class Api {
     final requestUri = Uri(
         path: '_matrix/client/r0/rooms/${Uri.encodeComponent(roomId)}/aliases');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return (json['aliases'] as List).map((v) => v as String).toList();
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return (response['aliases'] as List).map((v) => v as String).toList();
   }
 
   /// Ban a user in the room. If the user is currently in the room, also kick them.
@@ -2831,18 +2649,15 @@ class Api {
     final requestUri =
         Uri(path: '_matrix/client/r0/rooms/${Uri.encodeComponent(roomId)}/ban');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (reason != null) 'reason': reason,
-      'user_id': userId,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (reason != null) 'reason': reason,
+        'user_id': userId,
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// This API returns a number of events that happened just before and
@@ -2875,13 +2690,11 @@ class Api {
           if (filter != null) 'filter': filter,
         });
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return EventContext.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return EventContext.fromJson(response);
   }
 
   /// Get a single event based on `roomId/eventId`. You must have permission to
@@ -2895,13 +2708,11 @@ class Api {
         path:
             '_matrix/client/r0/rooms/${Uri.encodeComponent(roomId)}/event/${Uri.encodeComponent(eventId)}');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return MatrixEvent.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return MatrixEvent.fromJson(response);
   }
 
   /// This API stops a user remembering about a particular room.
@@ -2919,13 +2730,11 @@ class Api {
     final requestUri = Uri(
         path: '_matrix/client/r0/rooms/${Uri.encodeComponent(roomId)}/forget');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// *Note that there are two forms of this API, which are documented separately.
@@ -2985,20 +2794,17 @@ class Api {
     final requestUri = Uri(
         path: '_matrix/client/r0/rooms/${Uri.encodeComponent(roomId)}/invite');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'address': address,
-      'id_access_token': idAccessToken,
-      'id_server': idServer,
-      'medium': medium,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        'address': address,
+        'id_access_token': idAccessToken,
+        'id_server': idServer,
+        'medium': medium,
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// *Note that there are two forms of this API, which are documented separately.
@@ -3027,18 +2833,15 @@ class Api {
     final requestUri = Uri(
         path: '_matrix/client/r0/rooms/${Uri.encodeComponent(roomId)}/invite');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (reason != null) 'reason': reason,
-      'user_id': userId,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (reason != null) 'reason': reason,
+        'user_id': userId,
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// *Note that this API requires a room ID, not alias.*
@@ -3069,19 +2872,16 @@ class Api {
     final requestUri = Uri(
         path: '_matrix/client/r0/rooms/${Uri.encodeComponent(roomId)}/join');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (reason != null) 'reason': reason,
-      if (thirdPartySigned != null)
-        'third_party_signed': thirdPartySigned.toJson(),
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return json['room_id'] as String;
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (reason != null) 'reason': reason,
+        if (thirdPartySigned != null)
+          'third_party_signed': thirdPartySigned.toJson(),
+      },
+      authenticated: true,
+    );
+    return response['room_id'] as String;
   }
 
   /// This API returns a map of MXIDs to member info objects for members of the room. The current user must be in the room for it to work, unless it is an Application Service in which case any of the AS's users must be in the room. This API is primarily for Application Services and should be faster to respond than `/members` as it can be implemented more efficiently on the server.
@@ -3095,16 +2895,14 @@ class Api {
         path:
             '_matrix/client/r0/rooms/${Uri.encodeComponent(roomId)}/joined_members');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
     return ((v) => v != null
         ? (v as Map<String, dynamic>)
             .map((k, v) => MapEntry(k, RoomMember.fromJson(v)))
-        : null)(json['joined']);
+        : null)(response['joined']);
   }
 
   /// Kick a user from the room.
@@ -3125,18 +2923,15 @@ class Api {
     final requestUri = Uri(
         path: '_matrix/client/r0/rooms/${Uri.encodeComponent(roomId)}/kick');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (reason != null) 'reason': reason,
-      'user_id': userId,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (reason != null) 'reason': reason,
+        'user_id': userId,
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// This API stops a user participating in a particular room.
@@ -3159,17 +2954,14 @@ class Api {
     final requestUri = Uri(
         path: '_matrix/client/r0/rooms/${Uri.encodeComponent(roomId)}/leave');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (reason != null) 'reason': reason,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (reason != null) 'reason': reason,
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// Get the list of members for this room.
@@ -3214,15 +3006,13 @@ class Api {
             }[notMembership]!,
         });
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
     return ((v) => v != null
         ? (v as List).map((v) => MatrixEvent.fromJson(v)).toList()
-        : null)(json['chunk']);
+        : null)(response['chunk']);
   }
 
   /// This API returns a list of message and state events for a room. It uses
@@ -3261,13 +3051,11 @@ class Api {
           if (filter != null) 'filter': filter,
         });
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return GetRoomEventsResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return GetRoomEventsResponse.fromJson(response);
   }
 
   /// Sets the position of the read marker for a given room, and optionally
@@ -3287,18 +3075,15 @@ class Api {
         path:
             '_matrix/client/r0/rooms/${Uri.encodeComponent(roomId)}/read_markers');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'm.fully_read': mFullyRead,
-      if (mRead != null) 'm.read': mRead,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        'm.fully_read': mFullyRead,
+        if (mRead != null) 'm.read': mRead,
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// This API updates the marker for the given receipt type to the event ID
@@ -3320,15 +3105,12 @@ class Api {
       ReceiptType.mRead: 'm.read'
     }[receiptType]!)}/${Uri.encodeComponent(eventId)}');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode(receipt));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: receipt,
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// Strips all information out of an event which isn't critical to the
@@ -3360,17 +3142,14 @@ class Api {
         path:
             '_matrix/client/r0/rooms/${Uri.encodeComponent(roomId)}/redact/${Uri.encodeComponent(eventId)}/${Uri.encodeComponent(txnId)}');
     final request = Request('PUT', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (reason != null) 'reason': reason,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ((v) => v != null ? v as String : null)(json['event_id']);
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (reason != null) 'reason': reason,
+      },
+      authenticated: true,
+    );
+    return ((v) => v != null ? v as String : null)(response['event_id']);
   }
 
   /// Reports an event as inappropriate to the server, which may then notify
@@ -3390,18 +3169,15 @@ class Api {
         path:
             '_matrix/client/r0/rooms/${Uri.encodeComponent(roomId)}/report/${Uri.encodeComponent(eventId)}');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (reason != null) 'reason': reason,
-      if (score != null) 'score': score,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (reason != null) 'reason': reason,
+        if (score != null) 'score': score,
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// This endpoint is used to send a message event to a room. Message events
@@ -3428,15 +3204,12 @@ class Api {
         path:
             '_matrix/client/r0/rooms/${Uri.encodeComponent(roomId)}/send/${Uri.encodeComponent(eventType)}/${Uri.encodeComponent(txnId)}');
     final request = Request('PUT', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode(body));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return json['event_id'] as String;
+    final response = await doRequest(
+      request: request,
+      json: body,
+      authenticated: true,
+    );
+    return response['event_id'] as String;
   }
 
   /// Get the state events for the current state of a room.
@@ -3446,13 +3219,11 @@ class Api {
     final requestUri = Uri(
         path: '_matrix/client/r0/rooms/${Uri.encodeComponent(roomId)}/state');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return (json as List).map((v) => MatrixEvent.fromJson(v)).toList();
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return (response as List).map((v) => MatrixEvent.fromJson(v)).toList();
   }
 
   /// Looks up the contents of a state event in a room. If the user is
@@ -3472,13 +3243,11 @@ class Api {
         path:
             '_matrix/client/r0/rooms/${Uri.encodeComponent(roomId)}/state/${Uri.encodeComponent(eventType)}/${Uri.encodeComponent(stateKey)}');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return json as Map<String, dynamic>;
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return response as Map<String, dynamic>;
   }
 
   /// State events can be sent using this endpoint.  These events will be
@@ -3515,15 +3284,12 @@ class Api {
         path:
             '_matrix/client/r0/rooms/${Uri.encodeComponent(roomId)}/state/${Uri.encodeComponent(eventType)}/${Uri.encodeComponent(stateKey)}');
     final request = Request('PUT', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode(body));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return json['event_id'] as String;
+    final response = await doRequest(
+      request: request,
+      json: body,
+      authenticated: true,
+    );
+    return response['event_id'] as String;
   }
 
   /// This tells the server that the user is typing for the next N
@@ -3545,18 +3311,15 @@ class Api {
         path:
             '_matrix/client/r0/rooms/${Uri.encodeComponent(roomId)}/typing/${Uri.encodeComponent(userId)}');
     final request = Request('PUT', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (timeout != null) 'timeout': timeout,
-      'typing': typing,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (timeout != null) 'timeout': timeout,
+        'typing': typing,
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// Unban a user from the room. This allows them to be invited to the room,
@@ -3574,18 +3337,15 @@ class Api {
     final requestUri = Uri(
         path: '_matrix/client/r0/rooms/${Uri.encodeComponent(roomId)}/unban');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (reason != null) 'reason': reason,
-      'user_id': userId,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (reason != null) 'reason': reason,
+        'user_id': userId,
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// Upgrades the given room to a particular room version.
@@ -3600,17 +3360,14 @@ class Api {
     final requestUri = Uri(
         path: '_matrix/client/r0/rooms/${Uri.encodeComponent(roomId)}/upgrade');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'new_version': newVersion,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return json['replacement_room'] as String;
+    final response = await doRequest(
+      request: request,
+      json: {
+        'new_version': newVersion,
+      },
+      authenticated: true,
+    );
+    return response['replacement_room'] as String;
   }
 
   /// Performs a full text search across different categories.
@@ -3625,17 +3382,14 @@ class Api {
       if (nextBatch != null) 'next_batch': nextBatch,
     });
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'search_categories': searchCategories.toJson(),
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return SearchResults.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        'search_categories': searchCategories.toJson(),
+      },
+      authenticated: true,
+    );
+    return SearchResults.fromJson(response);
   }
 
   /// This endpoint is used to send send-to-device events to a set of
@@ -3656,18 +3410,15 @@ class Api {
         path:
             '_matrix/client/r0/sendToDevice/${Uri.encodeComponent(eventType)}/${Uri.encodeComponent(txnId)}');
     final request = Request('PUT', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      'messages':
-          messages.map((k, v) => MapEntry(k, v.map((k, v) => MapEntry(k, v)))),
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        'messages': messages
+            .map((k, v) => MapEntry(k, v.map((k, v) => MapEntry(k, v)))),
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// Synchronise the client's state with the latest state on the server.
@@ -3750,13 +3501,11 @@ class Api {
       if (timeout != null) 'timeout': timeout.toString(),
     });
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return SyncUpdate.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return SyncUpdate.fromJson(response);
   }
 
   /// Retrieve an array of third party network locations from a Matrix room
@@ -3769,13 +3518,11 @@ class Api {
       'alias': alias,
     });
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return (json as List).map((v) => Location.fromJson(v)).toList();
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return (response as List).map((v) => Location.fromJson(v)).toList();
   }
 
   /// Requesting this endpoint with a valid protocol name results in a list
@@ -3800,13 +3547,11 @@ class Api {
           if (searchFields != null) 'searchFields': searchFields,
         });
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return (json as List).map((v) => Location.fromJson(v)).toList();
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return (response as List).map((v) => Location.fromJson(v)).toList();
   }
 
   /// Fetches the metadata from the homeserver about a particular third party protocol.
@@ -3817,13 +3562,11 @@ class Api {
         path:
             '_matrix/client/r0/thirdparty/protocol/${Uri.encodeComponent(protocol)}');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return Protocol.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return Protocol.fromJson(response);
   }
 
   /// Fetches the overall metadata about protocols supported by the
@@ -3832,13 +3575,11 @@ class Api {
   Future<Map<String, Protocol>> getProtocols() async {
     final requestUri = Uri(path: '_matrix/client/r0/thirdparty/protocols');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return (json as Map<String, dynamic>)
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return (response as Map<String, dynamic>)
         .map((k, v) => MapEntry(k, Protocol.fromJson(v)));
   }
 
@@ -3851,13 +3592,11 @@ class Api {
       'userid': userid,
     });
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return (json as List).map((v) => ThirdPartyUser.fromJson(v)).toList();
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return (response as List).map((v) => ThirdPartyUser.fromJson(v)).toList();
   }
 
   /// Retrieve a Matrix User ID linked to a user on the third party service, given
@@ -3875,13 +3614,11 @@ class Api {
           if (fields != null) 'fields...': fields,
         });
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return (json as List).map((v) => ThirdPartyUser.fromJson(v)).toList();
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return (response as List).map((v) => ThirdPartyUser.fromJson(v)).toList();
   }
 
   /// Get some account_data for the client. This config is only visible to the user
@@ -3898,13 +3635,11 @@ class Api {
         path:
             '_matrix/client/r0/user/${Uri.encodeComponent(userId)}/account_data/${Uri.encodeComponent(type)}');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return json as Map<String, dynamic>;
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return response as Map<String, dynamic>;
   }
 
   /// Set some account_data for the client. This config is only visible to the user
@@ -3924,15 +3659,12 @@ class Api {
         path:
             '_matrix/client/r0/user/${Uri.encodeComponent(userId)}/account_data/${Uri.encodeComponent(type)}');
     final request = Request('PUT', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode(content));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: content,
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// Uploads a new filter definition to the homeserver.
@@ -3952,15 +3684,12 @@ class Api {
     final requestUri = Uri(
         path: '_matrix/client/r0/user/${Uri.encodeComponent(userId)}/filter');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode(filter));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return json['filter_id'] as String;
+    final response = await doRequest(
+      request: request,
+      json: filter.toJson(),
+      authenticated: true,
+    );
+    return response['filter_id'] as String;
   }
 
   /// getFilter
@@ -3973,13 +3702,11 @@ class Api {
         path:
             '_matrix/client/r0/user/${Uri.encodeComponent(userId)}/filter/${Uri.encodeComponent(filterId)}');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return Filter.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return Filter.fromJson(response);
   }
 
   /// Gets an OpenID token object that the requester may supply to another
@@ -4001,15 +3728,12 @@ class Api {
         path:
             '_matrix/client/r0/user/${Uri.encodeComponent(userId)}/openid/request_token');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode(body));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return OpenIdCredentials.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      json: body,
+      authenticated: true,
+    );
+    return OpenIdCredentials.fromJson(response);
   }
 
   /// Get some account_data for the client on a given room. This config is only
@@ -4028,13 +3752,11 @@ class Api {
         path:
             '_matrix/client/r0/user/${Uri.encodeComponent(userId)}/rooms/${Uri.encodeComponent(roomId)}/account_data/${Uri.encodeComponent(type)}');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return json as Map<String, dynamic>;
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return response as Map<String, dynamic>;
   }
 
   /// Set some account_data for the client on a given room. This config is only
@@ -4056,15 +3778,12 @@ class Api {
         path:
             '_matrix/client/r0/user/${Uri.encodeComponent(userId)}/rooms/${Uri.encodeComponent(roomId)}/account_data/${Uri.encodeComponent(type)}');
     final request = Request('PUT', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode(content));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: content,
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// List the tags set by a user on a room.
@@ -4080,16 +3799,14 @@ class Api {
         path:
             '_matrix/client/r0/user/${Uri.encodeComponent(userId)}/rooms/${Uri.encodeComponent(roomId)}/tags');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
     return ((v) => v != null
         ? (v as Map<String, dynamic>)
             .map((k, v) => MapEntry(k, Tag.fromJson(v)))
-        : null)(json['tags']);
+        : null)(response['tags']);
   }
 
   /// Remove a tag from the room.
@@ -4105,13 +3822,11 @@ class Api {
         path:
             '_matrix/client/r0/user/${Uri.encodeComponent(userId)}/rooms/${Uri.encodeComponent(roomId)}/tags/${Uri.encodeComponent(tag)}');
     final request = Request('DELETE', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// Add a tag to the room.
@@ -4132,18 +3847,15 @@ class Api {
         path:
             '_matrix/client/r0/user/${Uri.encodeComponent(userId)}/rooms/${Uri.encodeComponent(roomId)}/tags/${Uri.encodeComponent(tag)}');
     final request = Request('PUT', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      ...additionalProperties,
-      if (order != null) 'order': order,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ignore(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        ...additionalProperties,
+        if (order != null) 'order': order,
+      },
+      authenticated: true,
+    );
+    return ignore(response);
   }
 
   /// Performs a search for users. The homeserver may
@@ -4164,18 +3876,15 @@ class Api {
       {int? limit}) async {
     final requestUri = Uri(path: '_matrix/client/r0/user_directory/search');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    request.headers['content-type'] = 'application/json';
-    request.bodyBytes = utf8.encode(jsonEncode({
-      if (limit != null) 'limit': limit,
-      'search_term': searchTerm,
-    }));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return SearchUserDirectoryResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      json: {
+        if (limit != null) 'limit': limit,
+        'search_term': searchTerm,
+      },
+      authenticated: true,
+    );
+    return SearchUserDirectoryResponse.fromJson(response);
   }
 
   /// This API provides credentials for the client to use when initiating
@@ -4183,13 +3892,11 @@ class Api {
   Future<TurnServerCredentials> getTurnServer() async {
     final requestUri = Uri(path: '_matrix/client/r0/voip/turnServer');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return TurnServerCredentials.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return TurnServerCredentials.fromJson(response);
   }
 
   /// Gets the versions of the specification supported by the server.
@@ -4214,12 +3921,11 @@ class Api {
   Future<GetVersionsResponse> getVersions() async {
     final requestUri = Uri(path: '_matrix/client/versions');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return GetVersionsResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: false,
+    );
+    return GetVersionsResponse.fromJson(response);
   }
 
   /// This endpoint allows clients to retrieve the configuration of the content
@@ -4235,13 +3941,11 @@ class Api {
   Future<ServerConfig> getConfig() async {
     final requestUri = Uri(path: '_matrix/media/r0/config');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return ServerConfig.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return ServerConfig.fromJson(response);
   }
 
   /// getContent
@@ -4265,9 +3969,11 @@ class Api {
           if (allowRemote != null) 'allow_remote': allowRemote.toString(),
         });
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    final response = await httpClient.send(request);
+    final response = await doRawRequest(
+      request: request,
+      authenticated: false,
+    );
     final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
     return FileResponse(
         contentType: response.headers['content-type'], data: responseBody);
   }
@@ -4298,9 +4004,11 @@ class Api {
           if (allowRemote != null) 'allow_remote': allowRemote.toString(),
         });
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    final response = await httpClient.send(request);
+    final response = await doRawRequest(
+      request: request,
+      authenticated: false,
+    );
     final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
     return FileResponse(
         contentType: response.headers['content-type'], data: responseBody);
   }
@@ -4326,13 +4034,11 @@ class Api {
       if (ts != null) 'ts': ts.toString(),
     });
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return GetUrlPreviewResponse.fromJson(json);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return GetUrlPreviewResponse.fromJson(response);
   }
 
   /// Download a thumbnail of content from the content repository.
@@ -4370,9 +4076,11 @@ class Api {
           if (allowRemote != null) 'allow_remote': allowRemote.toString(),
         });
     final request = Request('GET', baseUri!.resolveUri(requestUri));
-    final response = await httpClient.send(request);
+    final response = await doRawRequest(
+      request: request,
+      authenticated: false,
+    );
     final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
     return FileResponse(
         contentType: response.headers['content-type'], data: responseBody);
   }
@@ -4393,14 +4101,12 @@ class Api {
       if (filename != null) 'filename': filename,
     });
     final request = Request('POST', baseUri!.resolveUri(requestUri));
-    request.headers['authorization'] = 'Bearer ${bearerToken!}';
     if (contentType != null) request.headers['content-type'] = contentType;
     request.bodyBytes = content;
-    final response = await httpClient.send(request);
-    final responseBody = await response.stream.toBytes();
-    if (response.statusCode != 200) unexpectedResponse(response, responseBody);
-    final responseString = utf8.decode(responseBody);
-    final json = jsonDecode(responseString);
-    return Uri.parse(json['content_uri']);
+    final response = await doRequest(
+      request: request,
+      authenticated: true,
+    );
+    return Uri.parse(response['content_uri']);
   }
 }

@@ -6,6 +6,7 @@ import '../model/sync_update.dart';
 import '../model/matrix_event.dart';
 
 import 'internal.dart';
+import '../utils/map_copy_extension.dart';
 
 class _NameSource {
   final String source;

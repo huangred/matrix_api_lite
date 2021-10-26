@@ -6,6 +6,8 @@ import '../model/sync_update.dart';
 import '../model/matrix_event.dart';
 
 import 'internal.dart';
+import 'package:enhanced_enum/enhanced_enum.dart';
+part 'model.g.dart';
 
 class _NameSource {
   final String source;
@@ -83,7 +85,13 @@ class DiscoveryInformation {
 }
 
 @_NameSource('rule override generated')
-enum ThirdPartyIdentifierMedium { email, msisdn }
+@EnhancedEnum()
+enum ThirdPartyIdentifierMedium {
+  @EnhancedEnumValue(name: 'email')
+  email,
+  @EnhancedEnumValue(name: 'msisdn')
+  msisdn
+}
 
 @_NameSource('spec')
 class ThirdPartyIdentifier {
@@ -97,18 +105,12 @@ class ThirdPartyIdentifier {
   ThirdPartyIdentifier.fromJson(Map<String, dynamic> json)
       : addedAt = json['added_at'] as int,
         address = json['address'] as String,
-        medium = {
-          'email': ThirdPartyIdentifierMedium.email,
-          'msisdn': ThirdPartyIdentifierMedium.msisdn
-        }[json['medium']]!,
+        medium = ThirdPartyIdentifierMedium.values.fromString(json['medium'])!,
         validatedAt = json['validated_at'] as int;
   Map<String, dynamic> toJson() => {
         'added_at': addedAt,
         'address': address,
-        'medium': {
-          ThirdPartyIdentifierMedium.email: 'email',
-          ThirdPartyIdentifierMedium.msisdn: 'msisdn'
-        }[medium]!,
+        'medium': medium.name,
         'validated_at': validatedAt,
       };
 
@@ -163,7 +165,13 @@ class ThreePidCredentials {
 }
 
 @_NameSource('generated')
-enum IdServerUnbindResult { noSupport, success }
+@EnhancedEnum()
+enum IdServerUnbindResult {
+  @EnhancedEnumValue(name: 'no-support')
+  noSupport,
+  @EnhancedEnumValue(name: 'success')
+  success
+}
 
 @_NameSource('spec')
 class RequestTokenResponse {
@@ -355,7 +363,13 @@ class ChangePasswordCapability {
 
 /// The stability of the room version.
 @_NameSource('rule override generated')
-enum RoomVersionAvailable { stable, unstable }
+@EnhancedEnum()
+enum RoomVersionAvailable {
+  @EnhancedEnumValue(name: 'stable')
+  stable,
+  @EnhancedEnumValue(name: 'unstable')
+  unstable
+}
 
 @_NameSource('spec')
 class RoomVersionsCapability {
@@ -365,21 +379,11 @@ class RoomVersionsCapability {
   });
 
   RoomVersionsCapability.fromJson(Map<String, dynamic> json)
-      : available = (json['available'] as Map<String, dynamic>).map((k, v) =>
-            MapEntry(
-                k,
-                {
-                  'stable': RoomVersionAvailable.stable,
-                  'unstable': RoomVersionAvailable.unstable
-                }[v]!)),
+      : available = (json['available'] as Map<String, dynamic>).map(
+            (k, v) => MapEntry(k, RoomVersionAvailable.values.fromString(v)!)),
         default$ = json['default'] as String;
   Map<String, dynamic> toJson() => {
-        'available': available.map((k, v) => MapEntry(
-            k,
-            {
-              RoomVersionAvailable.stable: 'stable',
-              RoomVersionAvailable.unstable: 'unstable'
-            }[v]!)),
+        'available': available.map((k, v) => MapEntry(k, v.name)),
         'default': default$,
       };
 
@@ -497,10 +501,24 @@ class Invite3pid {
 }
 
 @_NameSource('rule override generated')
-enum CreateRoomPreset { privateChat, publicChat, trustedPrivateChat }
+@EnhancedEnum()
+enum CreateRoomPreset {
+  @EnhancedEnumValue(name: 'private_chat')
+  privateChat,
+  @EnhancedEnumValue(name: 'public_chat')
+  publicChat,
+  @EnhancedEnumValue(name: 'trusted_private_chat')
+  trustedPrivateChat
+}
 
 @_NameSource('generated')
-enum Visibility { private, public }
+@EnhancedEnum()
+enum Visibility {
+  @EnhancedEnumValue(name: 'private')
+  private,
+  @EnhancedEnumValue(name: 'public')
+  public
+}
 
 /// A client device
 @_NameSource('spec')
@@ -844,7 +862,13 @@ class LoginFlow {
 }
 
 @_NameSource('rule override generated')
-enum LoginType { mLoginPassword, mLoginToken }
+@EnhancedEnum()
+enum LoginType {
+  @EnhancedEnumValue(name: 'm.login.password')
+  mLoginPassword,
+  @EnhancedEnumValue(name: 'm.login.token')
+  mLoginToken
+}
 
 @_NameSource('generated')
 class LoginResponse {
@@ -990,7 +1014,15 @@ class GetNotificationsResponse {
 }
 
 @_NameSource('rule override generated')
-enum PresenceType { offline, online, unavailable }
+@EnhancedEnum()
+enum PresenceType {
+  @EnhancedEnumValue(name: 'offline')
+  offline,
+  @EnhancedEnumValue(name: 'online')
+  online,
+  @EnhancedEnumValue(name: 'unavailable')
+  unavailable
+}
 
 @_NameSource('generated')
 class GetPresenceResponse {
@@ -1006,11 +1038,7 @@ class GetPresenceResponse {
             ((v) => v != null ? v as bool : null)(json['currently_active']),
         lastActiveAgo =
             ((v) => v != null ? v as int : null)(json['last_active_ago']),
-        presence = {
-          'online': PresenceType.online,
-          'offline': PresenceType.offline,
-          'unavailable': PresenceType.unavailable
-        }[json['presence']]!,
+        presence = PresenceType.values.fromString(json['presence'])!,
         statusMsg = ((v) => v != null ? v as String : null)(json['status_msg']);
   Map<String, dynamic> toJson() {
     final currentlyActive = this.currentlyActive;
@@ -1019,11 +1047,7 @@ class GetPresenceResponse {
     return {
       if (currentlyActive != null) 'currently_active': currentlyActive,
       if (lastActiveAgo != null) 'last_active_ago': lastActiveAgo,
-      'presence': {
-        PresenceType.online: 'online',
-        PresenceType.offline: 'offline',
-        PresenceType.unavailable: 'unavailable'
-      }[presence]!,
+      'presence': presence.name,
       if (statusMsg != null) 'status_msg': statusMsg,
     };
   }
@@ -1281,15 +1305,20 @@ class PusherData {
   PusherData({
     this.format,
     this.url,
+    this.additionalProperties = const {},
   });
 
   PusherData.fromJson(Map<String, dynamic> json)
       : format = ((v) => v != null ? v as String : null)(json['format']),
-        url = ((v) => v != null ? Uri.parse(v) : null)(json['url']);
+        url = ((v) => v != null ? Uri.parse(v) : null)(json['url']),
+        additionalProperties = Map.fromEntries(json.entries
+            .where((e) => !['format', 'url'].contains(e.key))
+            .map((e) => MapEntry(e.key, e.value as dynamic)));
   Map<String, dynamic> toJson() {
     final format = this.format;
     final url = this.url;
     return {
+      ...additionalProperties,
       if (format != null) 'format': format,
       if (url != null) 'url': url.toString(),
     };
@@ -1302,6 +1331,8 @@ class PusherData {
   /// Required if `kind` is `http`. The URL to use to send
   /// notifications to.
   Uri? url;
+
+  Map<String, dynamic> additionalProperties;
 }
 
 @_NameSource('spec')
@@ -1538,10 +1569,28 @@ class PushRuleSet {
 }
 
 @_NameSource('rule override generated')
-enum PushRuleKind { content, override, room, sender, underride }
+@EnhancedEnum()
+enum PushRuleKind {
+  @EnhancedEnumValue(name: 'content')
+  content,
+  @EnhancedEnumValue(name: 'override')
+  override,
+  @EnhancedEnumValue(name: 'room')
+  room,
+  @EnhancedEnumValue(name: 'sender')
+  sender,
+  @EnhancedEnumValue(name: 'underride')
+  underride
+}
 
 @_NameSource('rule override generated')
-enum AccountKind { guest, user }
+@EnhancedEnum()
+enum AccountKind {
+  @EnhancedEnumValue(name: 'guest')
+  guest,
+  @EnhancedEnumValue(name: 'user')
+  user
+}
 
 @_NameSource('generated')
 class RegisterResponse {
@@ -1693,7 +1742,11 @@ class RoomKeys {
 }
 
 @_NameSource('rule override generated')
-enum BackupAlgorithm { mMegolmBackupV1Curve25519AesSha2 }
+@EnhancedEnum()
+enum BackupAlgorithm {
+  @EnhancedEnumValue(name: 'm.megolm_backup.v1.curve25519-aes-sha2')
+  mMegolmBackupV1Curve25519AesSha2
+}
 
 @_NameSource('generated')
 class GetRoomKeysVersionCurrentResponse {
@@ -1706,19 +1759,13 @@ class GetRoomKeysVersionCurrentResponse {
   });
 
   GetRoomKeysVersionCurrentResponse.fromJson(Map<String, dynamic> json)
-      : algorithm = {
-          'm.megolm_backup.v1.curve25519-aes-sha2':
-              BackupAlgorithm.mMegolmBackupV1Curve25519AesSha2
-        }[json['algorithm']]!,
+      : algorithm = BackupAlgorithm.values.fromString(json['algorithm'])!,
         authData = json['auth_data'] as Map<String, dynamic>,
         count = json['count'] as int,
         etag = json['etag'] as String,
         version = json['version'] as String;
   Map<String, dynamic> toJson() => {
-        'algorithm': {
-          BackupAlgorithm.mMegolmBackupV1Curve25519AesSha2:
-              'm.megolm_backup.v1.curve25519-aes-sha2'
-        }[algorithm]!,
+        'algorithm': algorithm.name,
         'auth_data': authData,
         'count': count,
         'etag': etag,
@@ -1757,19 +1804,13 @@ class GetRoomKeysVersionResponse {
   });
 
   GetRoomKeysVersionResponse.fromJson(Map<String, dynamic> json)
-      : algorithm = {
-          'm.megolm_backup.v1.curve25519-aes-sha2':
-              BackupAlgorithm.mMegolmBackupV1Curve25519AesSha2
-        }[json['algorithm']]!,
+      : algorithm = BackupAlgorithm.values.fromString(json['algorithm'])!,
         authData = json['auth_data'] as Map<String, dynamic>,
         count = json['count'] as int,
         etag = json['etag'] as String,
         version = json['version'] as String;
   Map<String, dynamic> toJson() => {
-        'algorithm': {
-          BackupAlgorithm.mMegolmBackupV1Curve25519AesSha2:
-              'm.megolm_backup.v1.curve25519-aes-sha2'
-        }[algorithm]!,
+        'algorithm': algorithm.name,
         'auth_data': authData,
         'count': count,
         'etag': etag,
@@ -1892,10 +1933,28 @@ class RoomMember {
 }
 
 @_NameSource('(generated, rule override generated)')
-enum Membership { ban, invite, join, knock, leave }
+@EnhancedEnum()
+enum Membership {
+  @EnhancedEnumValue(name: 'ban')
+  ban,
+  @EnhancedEnumValue(name: 'invite')
+  invite,
+  @EnhancedEnumValue(name: 'join')
+  join,
+  @EnhancedEnumValue(name: 'knock')
+  knock,
+  @EnhancedEnumValue(name: 'leave')
+  leave
+}
 
 @_NameSource('rule override generated')
-enum Direction { b, f }
+@EnhancedEnum()
+enum Direction {
+  @EnhancedEnumValue(name: 'b')
+  b,
+  @EnhancedEnumValue(name: 'f')
+  f
+}
 
 /// A list of messages with a new token to request more.
 @_NameSource('generated')
@@ -1955,7 +2014,11 @@ class GetRoomEventsResponse {
 }
 
 @_NameSource('generated')
-enum ReceiptType { mRead }
+@EnhancedEnum()
+enum ReceiptType {
+  @EnhancedEnumValue(name: 'm.read')
+  mRead
+}
 
 @_NameSource('spec')
 class IncludeEventContext {
@@ -2218,7 +2281,13 @@ class SearchFilter implements EventFilter, RoomEventFilter {
 }
 
 @_NameSource('rule override generated')
-enum GroupKey { roomId, sender }
+@EnhancedEnum()
+enum GroupKey {
+  @EnhancedEnumValue(name: 'room_id')
+  roomId,
+  @EnhancedEnumValue(name: 'sender')
+  sender
+}
 
 /// Configuration for group.
 @_NameSource('spec')
@@ -2228,14 +2297,12 @@ class Group {
   });
 
   Group.fromJson(Map<String, dynamic> json)
-      : key = ((v) => v != null
-            ? {'room_id': GroupKey.roomId, 'sender': GroupKey.sender}[v]!
-            : null)(json['key']);
+      : key = ((v) =>
+            v != null ? GroupKey.values.fromString(v)! : null)(json['key']);
   Map<String, dynamic> toJson() {
     final key = this.key;
     return {
-      if (key != null)
-        'key': {GroupKey.roomId: 'room_id', GroupKey.sender: 'sender'}[key]!,
+      if (key != null) 'key': key.name,
     };
   }
 
@@ -2265,10 +2332,24 @@ class Groupings {
 }
 
 @_NameSource('rule override generated')
-enum KeyKind { contentBody, contentName, contentTopic }
+@EnhancedEnum()
+enum KeyKind {
+  @EnhancedEnumValue(name: 'content.body')
+  contentBody,
+  @EnhancedEnumValue(name: 'content.name')
+  contentName,
+  @EnhancedEnumValue(name: 'content.topic')
+  contentTopic
+}
 
 @_NameSource('rule override generated')
-enum SearchOrder { rank, recent }
+@EnhancedEnum()
+enum SearchOrder {
+  @EnhancedEnumValue(name: 'rank')
+  rank,
+  @EnhancedEnumValue(name: 'recent')
+  recent
+}
 
 @_NameSource('spec')
 class RoomEventsCriteria {
@@ -2293,17 +2374,10 @@ class RoomEventsCriteria {
         includeState =
             ((v) => v != null ? v as bool : null)(json['include_state']),
         keys = ((v) => v != null
-            ? (v as List)
-                .map((v) => {
-                      'content.body': KeyKind.contentBody,
-                      'content.name': KeyKind.contentName,
-                      'content.topic': KeyKind.contentTopic
-                    }[v]!)
-                .toList()
+            ? (v as List).map((v) => KeyKind.values.fromString(v)!).toList()
             : null)(json['keys']),
-        orderBy = ((v) => v != null
-            ? {'recent': SearchOrder.recent, 'rank': SearchOrder.rank}[v]!
-            : null)(json['order_by']),
+        orderBy = ((v) => v != null ? SearchOrder.values.fromString(v)! : null)(
+            json['order_by']),
         searchTerm = json['search_term'] as String;
   Map<String, dynamic> toJson() {
     final eventContext = this.eventContext;
@@ -2317,19 +2391,8 @@ class RoomEventsCriteria {
       if (filter != null) 'filter': filter.toJson(),
       if (groupings != null) 'groupings': groupings.toJson(),
       if (includeState != null) 'include_state': includeState,
-      if (keys != null)
-        'keys': keys
-            .map((v) => {
-                  KeyKind.contentBody: 'content.body',
-                  KeyKind.contentName: 'content.name',
-                  KeyKind.contentTopic: 'content.topic'
-                }[v]!)
-            .toList(),
-      if (orderBy != null)
-        'order_by': {
-          SearchOrder.recent: 'recent',
-          SearchOrder.rank: 'rank'
-        }[orderBy]!,
+      if (keys != null) 'keys': keys.map((v) => v.name).toList(),
+      if (orderBy != null) 'order_by': orderBy.name,
       'search_term': searchTerm,
     };
   }
@@ -2840,7 +2903,13 @@ class ThirdPartyUser {
 }
 
 @_NameSource('generated')
-enum EventFormat { client, federation }
+@EnhancedEnum()
+enum EventFormat {
+  @EnhancedEnumValue(name: 'client')
+  client,
+  @EnhancedEnumValue(name: 'federation')
+  federation
+}
 
 @_NameSource('rule override generated')
 class StateFilter implements EventFilter, RoomEventFilter {
@@ -3033,10 +3102,7 @@ class Filter {
             ? (v as List).map((v) => v as String).toList()
             : null)(json['event_fields']),
         eventFormat = ((v) => v != null
-            ? {
-                'client': EventFormat.client,
-                'federation': EventFormat.federation
-              }[v]!
+            ? EventFormat.values.fromString(v)!
             : null)(json['event_format']),
         presence = ((v) =>
             v != null ? EventFilter.fromJson(v) : null)(json['presence']),
@@ -3051,11 +3117,7 @@ class Filter {
       if (accountData != null) 'account_data': accountData.toJson(),
       if (eventFields != null)
         'event_fields': eventFields.map((v) => v).toList(),
-      if (eventFormat != null)
-        'event_format': {
-          EventFormat.client: 'client',
-          EventFormat.federation: 'federation'
-        }[eventFormat]!,
+      if (eventFormat != null) 'event_format': eventFormat.name,
       if (presence != null) 'presence': presence.toJson(),
       if (room != null) 'room': room.toJson(),
     };
@@ -3239,16 +3301,21 @@ class GetVersionsResponse {
   GetVersionsResponse({
     this.unstableFeatures,
     required this.versions,
+    this.additionalProperties = const {},
   });
 
   GetVersionsResponse.fromJson(Map<String, dynamic> json)
       : unstableFeatures = ((v) => v != null
             ? (v as Map<String, dynamic>).map((k, v) => MapEntry(k, v as bool))
             : null)(json['unstable_features']),
-        versions = (json['versions'] as List).map((v) => v as String).toList();
+        versions = (json['versions'] as List).map((v) => v as String).toList(),
+        additionalProperties = Map.fromEntries(json.entries
+            .where((e) => !['unstable_features', 'versions'].contains(e.key))
+            .map((e) => MapEntry(e.key, e.value as dynamic)));
   Map<String, dynamic> toJson() {
     final unstableFeatures = this.unstableFeatures;
     return {
+      ...additionalProperties,
       if (unstableFeatures != null)
         'unstable_features': unstableFeatures.map((k, v) => MapEntry(k, v)),
       'versions': versions.map((v) => v).toList(),
@@ -3262,6 +3329,8 @@ class GetVersionsResponse {
 
   /// The supported versions.
   List<String> versions;
+
+  Map<String, dynamic> additionalProperties;
 }
 
 @_NameSource('rule override generated')
@@ -3314,4 +3383,10 @@ class GetUrlPreviewResponse {
 }
 
 @_NameSource('generated')
-enum Method { crop, scale }
+@EnhancedEnum()
+enum Method {
+  @EnhancedEnumValue(name: 'crop')
+  crop,
+  @EnhancedEnumValue(name: 'scale')
+  scale
+}

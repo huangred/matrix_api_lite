@@ -196,20 +196,15 @@ class Api {
     request.bodyBytes = utf8.encode(jsonEncode({
       'address': address,
       if (idServer != null) 'id_server': idServer,
-      'medium': {
-        ThirdPartyIdentifierMedium.email: 'email',
-        ThirdPartyIdentifierMedium.msisdn: 'msisdn'
-      }[medium]!,
+      'medium': medium.name,
     }));
     final response = await httpClient.send(request);
     final responseBody = await response.stream.toBytes();
     if (response.statusCode != 200) unexpectedResponse(response, responseBody);
     final responseString = utf8.decode(responseBody);
     final json = jsonDecode(responseString);
-    return {
-      'no-support': IdServerUnbindResult.noSupport,
-      'success': IdServerUnbindResult.success
-    }[json['id_server_unbind_result']]!;
+    return IdServerUnbindResult.values
+        .fromString(json['id_server_unbind_result'])!;
   }
 
   /// The homeserver must check that the given email address is **not**
@@ -377,20 +372,15 @@ class Api {
     request.bodyBytes = utf8.encode(jsonEncode({
       'address': address,
       if (idServer != null) 'id_server': idServer,
-      'medium': {
-        ThirdPartyIdentifierMedium.email: 'email',
-        ThirdPartyIdentifierMedium.msisdn: 'msisdn'
-      }[medium]!,
+      'medium': medium.name,
     }));
     final response = await httpClient.send(request);
     final responseBody = await response.stream.toBytes();
     if (response.statusCode != 200) unexpectedResponse(response, responseBody);
     final responseString = utf8.decode(responseBody);
     final json = jsonDecode(responseString);
-    return {
-      'no-support': IdServerUnbindResult.noSupport,
-      'success': IdServerUnbindResult.success
-    }[json['id_server_unbind_result']]!;
+    return IdServerUnbindResult.values
+        .fromString(json['id_server_unbind_result'])!;
   }
 
   /// Deactivate the user's account, removing all ability for the user to
@@ -441,10 +431,8 @@ class Api {
     if (response.statusCode != 200) unexpectedResponse(response, responseBody);
     final responseString = utf8.decode(responseBody);
     final json = jsonDecode(responseString);
-    return {
-      'no-support': IdServerUnbindResult.noSupport,
-      'success': IdServerUnbindResult.success
-    }[json['id_server_unbind_result']]!;
+    return IdServerUnbindResult.values
+        .fromString(json['id_server_unbind_result'])!;
   }
 
   /// Changes the password for an account on this homeserver.
@@ -834,20 +822,11 @@ class Api {
       if (name != null) 'name': name,
       if (powerLevelContentOverride != null)
         'power_level_content_override': powerLevelContentOverride,
-      if (preset != null)
-        'preset': {
-          CreateRoomPreset.privateChat: 'private_chat',
-          CreateRoomPreset.publicChat: 'public_chat',
-          CreateRoomPreset.trustedPrivateChat: 'trusted_private_chat'
-        }[preset]!,
+      if (preset != null) 'preset': preset.name,
       if (roomAliasName != null) 'room_alias_name': roomAliasName,
       if (roomVersion != null) 'room_version': roomVersion,
       if (topic != null) 'topic': topic,
-      if (visibility != null)
-        'visibility': {
-          Visibility.public: 'public',
-          Visibility.private: 'private'
-        }[visibility]!,
+      if (visibility != null) 'visibility': visibility.name,
     }));
     final response = await httpClient.send(request);
     final responseBody = await response.stream.toBytes();
@@ -992,10 +971,7 @@ class Api {
     request.headers['authorization'] = 'Bearer ${bearerToken!}';
     request.headers['content-type'] = 'application/json';
     request.bodyBytes = utf8.encode(jsonEncode({
-      'visibility': {
-        Visibility.public: 'public',
-        Visibility.private: 'private'
-      }[visibility]!,
+      'visibility': visibility.name,
     }));
     final response = await httpClient.send(request);
     final responseBody = await response.stream.toBytes();
@@ -1021,9 +997,8 @@ class Api {
     if (response.statusCode != 200) unexpectedResponse(response, responseBody);
     final responseString = utf8.decode(responseBody);
     final json = jsonDecode(responseString);
-    return ((v) => v != null
-        ? {'public': Visibility.public, 'private': Visibility.private}[v]!
-        : null)(json['visibility']);
+    return ((v) => v != null ? Visibility.values.fromString(v)! : null)(
+        json['visibility']);
   }
 
   /// Sets the visibility of a given room in the server's public room
@@ -1046,11 +1021,7 @@ class Api {
     request.headers['authorization'] = 'Bearer ${bearerToken!}';
     request.headers['content-type'] = 'application/json';
     request.bodyBytes = utf8.encode(jsonEncode({
-      if (visibility != null)
-        'visibility': {
-          Visibility.public: 'public',
-          Visibility.private: 'private'
-        }[visibility]!,
+      if (visibility != null) 'visibility': visibility.name,
     }));
     final response = await httpClient.send(request);
     final responseBody = await response.stream.toBytes();
@@ -1573,10 +1544,7 @@ class Api {
       if (medium != null) 'medium': medium,
       if (password != null) 'password': password,
       if (token != null) 'token': token,
-      'type': {
-        LoginType.mLoginPassword: 'm.login.password',
-        LoginType.mLoginToken: 'm.login.token'
-      }[type]!,
+      'type': type.name,
       if (user != null) 'user': user,
     }));
     final response = await httpClient.send(request);
@@ -1689,11 +1657,7 @@ class Api {
     request.headers['authorization'] = 'Bearer ${bearerToken!}';
     request.headers['content-type'] = 'application/json';
     request.bodyBytes = utf8.encode(jsonEncode({
-      'presence': {
-        PresenceType.online: 'online',
-        PresenceType.offline: 'offline',
-        PresenceType.unavailable: 'unavailable'
-      }[presence]!,
+      'presence': presence.name,
       if (statusMsg != null) 'status_msg': statusMsg,
     }));
     final response = await httpClient.send(request);
@@ -1946,13 +1910,7 @@ class Api {
       String scope, PushRuleKind kind, String ruleId) async {
     final requestUri = Uri(
         path:
-            '_matrix/client/r0/pushrules/${Uri.encodeComponent(scope)}/${Uri.encodeComponent({
-      PushRuleKind.override: 'override',
-      PushRuleKind.underride: 'underride',
-      PushRuleKind.sender: 'sender',
-      PushRuleKind.room: 'room',
-      PushRuleKind.content: 'content'
-    }[kind]!)}/${Uri.encodeComponent(ruleId)}');
+            '_matrix/client/r0/pushrules/${Uri.encodeComponent(scope)}/${Uri.encodeComponent(kind.name)}/${Uri.encodeComponent(ruleId)}');
     final request = Request('DELETE', baseUri!.resolveUri(requestUri));
     request.headers['authorization'] = 'Bearer ${bearerToken!}';
     final response = await httpClient.send(request);
@@ -1976,13 +1934,7 @@ class Api {
       String scope, PushRuleKind kind, String ruleId) async {
     final requestUri = Uri(
         path:
-            '_matrix/client/r0/pushrules/${Uri.encodeComponent(scope)}/${Uri.encodeComponent({
-      PushRuleKind.override: 'override',
-      PushRuleKind.underride: 'underride',
-      PushRuleKind.sender: 'sender',
-      PushRuleKind.room: 'room',
-      PushRuleKind.content: 'content'
-    }[kind]!)}/${Uri.encodeComponent(ruleId)}');
+            '_matrix/client/r0/pushrules/${Uri.encodeComponent(scope)}/${Uri.encodeComponent(kind.name)}/${Uri.encodeComponent(ruleId)}');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
     request.headers['authorization'] = 'Bearer ${bearerToken!}';
     final response = await httpClient.send(request);
@@ -2030,13 +1982,7 @@ class Api {
       String? pattern}) async {
     final requestUri = Uri(
         path:
-            '_matrix/client/r0/pushrules/${Uri.encodeComponent(scope)}/${Uri.encodeComponent({
-          PushRuleKind.override: 'override',
-          PushRuleKind.underride: 'underride',
-          PushRuleKind.sender: 'sender',
-          PushRuleKind.room: 'room',
-          PushRuleKind.content: 'content'
-        }[kind]!)}/${Uri.encodeComponent(ruleId)}',
+            '_matrix/client/r0/pushrules/${Uri.encodeComponent(scope)}/${Uri.encodeComponent(kind.name)}/${Uri.encodeComponent(ruleId)}',
         queryParameters: {
           if (before != null) 'before': before,
           if (after != null) 'after': after,
@@ -2075,13 +2021,7 @@ class Api {
       String scope, PushRuleKind kind, String ruleId) async {
     final requestUri = Uri(
         path:
-            '_matrix/client/r0/pushrules/${Uri.encodeComponent(scope)}/${Uri.encodeComponent({
-      PushRuleKind.override: 'override',
-      PushRuleKind.underride: 'underride',
-      PushRuleKind.sender: 'sender',
-      PushRuleKind.room: 'room',
-      PushRuleKind.content: 'content'
-    }[kind]!)}/${Uri.encodeComponent(ruleId)}/actions');
+            '_matrix/client/r0/pushrules/${Uri.encodeComponent(scope)}/${Uri.encodeComponent(kind.name)}/${Uri.encodeComponent(ruleId)}/actions');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
     request.headers['authorization'] = 'Bearer ${bearerToken!}';
     final response = await httpClient.send(request);
@@ -2108,13 +2048,7 @@ class Api {
       String ruleId, List<dynamic> actions) async {
     final requestUri = Uri(
         path:
-            '_matrix/client/r0/pushrules/${Uri.encodeComponent(scope)}/${Uri.encodeComponent({
-      PushRuleKind.override: 'override',
-      PushRuleKind.underride: 'underride',
-      PushRuleKind.sender: 'sender',
-      PushRuleKind.room: 'room',
-      PushRuleKind.content: 'content'
-    }[kind]!)}/${Uri.encodeComponent(ruleId)}/actions');
+            '_matrix/client/r0/pushrules/${Uri.encodeComponent(scope)}/${Uri.encodeComponent(kind.name)}/${Uri.encodeComponent(ruleId)}/actions');
     final request = Request('PUT', baseUri!.resolveUri(requestUri));
     request.headers['authorization'] = 'Bearer ${bearerToken!}';
     request.headers['content-type'] = 'application/json';
@@ -2146,13 +2080,7 @@ class Api {
       String scope, PushRuleKind kind, String ruleId) async {
     final requestUri = Uri(
         path:
-            '_matrix/client/r0/pushrules/${Uri.encodeComponent(scope)}/${Uri.encodeComponent({
-      PushRuleKind.override: 'override',
-      PushRuleKind.underride: 'underride',
-      PushRuleKind.sender: 'sender',
-      PushRuleKind.room: 'room',
-      PushRuleKind.content: 'content'
-    }[kind]!)}/${Uri.encodeComponent(ruleId)}/enabled');
+            '_matrix/client/r0/pushrules/${Uri.encodeComponent(scope)}/${Uri.encodeComponent(kind.name)}/${Uri.encodeComponent(ruleId)}/enabled');
     final request = Request('GET', baseUri!.resolveUri(requestUri));
     request.headers['authorization'] = 'Bearer ${bearerToken!}';
     final response = await httpClient.send(request);
@@ -2178,13 +2106,7 @@ class Api {
       String scope, PushRuleKind kind, String ruleId, bool enabled) async {
     final requestUri = Uri(
         path:
-            '_matrix/client/r0/pushrules/${Uri.encodeComponent(scope)}/${Uri.encodeComponent({
-      PushRuleKind.override: 'override',
-      PushRuleKind.underride: 'underride',
-      PushRuleKind.sender: 'sender',
-      PushRuleKind.room: 'room',
-      PushRuleKind.content: 'content'
-    }[kind]!)}/${Uri.encodeComponent(ruleId)}/enabled');
+            '_matrix/client/r0/pushrules/${Uri.encodeComponent(scope)}/${Uri.encodeComponent(kind.name)}/${Uri.encodeComponent(ruleId)}/enabled');
     final request = Request('PUT', baseUri!.resolveUri(requestUri));
     request.headers['authorization'] = 'Bearer ${bearerToken!}';
     request.headers['content-type'] = 'application/json';
@@ -2272,8 +2194,7 @@ class Api {
       String? username}) async {
     final requestUri =
         Uri(path: '_matrix/client/r0/register', queryParameters: {
-      if (kind != null)
-        'kind': {AccountKind.guest: 'guest', AccountKind.user: 'user'}[kind]!,
+      if (kind != null) 'kind': kind.name,
     });
     final request = Request('POST', baseUri!.resolveUri(requestUri));
     request.headers['content-type'] = 'application/json';
@@ -2692,10 +2613,7 @@ class Api {
     request.headers['authorization'] = 'Bearer ${bearerToken!}';
     request.headers['content-type'] = 'application/json';
     request.bodyBytes = utf8.encode(jsonEncode({
-      'algorithm': {
-        BackupAlgorithm.mMegolmBackupV1Curve25519AesSha2:
-            'm.megolm_backup.v1.curve25519-aes-sha2'
-      }[algorithm]!,
+      'algorithm': algorithm.name,
       'auth_data': authData,
     }));
     final response = await httpClient.send(request);
@@ -2769,10 +2687,7 @@ class Api {
     request.headers['authorization'] = 'Bearer ${bearerToken!}';
     request.headers['content-type'] = 'application/json';
     request.bodyBytes = utf8.encode(jsonEncode({
-      'algorithm': {
-        BackupAlgorithm.mMegolmBackupV1Curve25519AesSha2:
-            'm.megolm_backup.v1.curve25519-aes-sha2'
-      }[algorithm]!,
+      'algorithm': algorithm.name,
       'auth_data': authData,
     }));
     final response = await httpClient.send(request);
@@ -3197,22 +3112,8 @@ class Api {
         path: '_matrix/client/r0/rooms/${Uri.encodeComponent(roomId)}/members',
         queryParameters: {
           if (at != null) 'at': at,
-          if (membership != null)
-            'membership': {
-              Membership.invite: 'invite',
-              Membership.join: 'join',
-              Membership.knock: 'knock',
-              Membership.leave: 'leave',
-              Membership.ban: 'ban'
-            }[membership]!,
-          if (notMembership != null)
-            'not_membership': {
-              Membership.invite: 'invite',
-              Membership.join: 'join',
-              Membership.knock: 'knock',
-              Membership.leave: 'leave',
-              Membership.ban: 'ban'
-            }[notMembership]!,
+          if (membership != null) 'membership': membership.name,
+          if (notMembership != null) 'not_membership': notMembership.name,
         });
     final request = Request('GET', baseUri!.resolveUri(requestUri));
     request.headers['authorization'] = 'Bearer ${bearerToken!}';
@@ -3257,7 +3158,7 @@ class Api {
         queryParameters: {
           'from': from,
           if (to != null) 'to': to,
-          'dir': {Direction.b: 'b', Direction.f: 'f'}[dir]!,
+          'dir': dir.name,
           if (limit != null) 'limit': limit.toString(),
           if (filter != null) 'filter': filter,
         });
@@ -3317,9 +3218,7 @@ class Api {
       String eventId, Map<String, dynamic> receipt) async {
     final requestUri = Uri(
         path:
-            '_matrix/client/r0/rooms/${Uri.encodeComponent(roomId)}/receipt/${Uri.encodeComponent({
-      ReceiptType.mRead: 'm.read'
-    }[receiptType]!)}/${Uri.encodeComponent(eventId)}');
+            '_matrix/client/r0/rooms/${Uri.encodeComponent(roomId)}/receipt/${Uri.encodeComponent(receiptType.name)}/${Uri.encodeComponent(eventId)}');
     final request = Request('POST', baseUri!.resolveUri(requestUri));
     request.headers['authorization'] = 'Bearer ${bearerToken!}';
     request.headers['content-type'] = 'application/json';
@@ -3742,12 +3641,7 @@ class Api {
       if (filter != null) 'filter': filter,
       if (since != null) 'since': since,
       if (fullState != null) 'full_state': fullState.toString(),
-      if (setPresence != null)
-        'set_presence': {
-          PresenceType.online: 'online',
-          PresenceType.offline: 'offline',
-          PresenceType.unavailable: 'unavailable'
-        }[setPresence]!,
+      if (setPresence != null) 'set_presence': setPresence.name,
       if (timeout != null) 'timeout': timeout.toString(),
     });
     final request = Request('GET', baseUri!.resolveUri(requestUri));
@@ -4366,8 +4260,7 @@ class Api {
         queryParameters: {
           'width': width.toString(),
           'height': height.toString(),
-          if (method != null)
-            'method': {Method.crop: 'crop', Method.scale: 'scale'}[method]!,
+          if (method != null) 'method': method.name,
           if (allowRemote != null) 'allow_remote': allowRemote.toString(),
         });
     final request = Request('GET', baseUri!.resolveUri(requestUri));

@@ -1,17 +1,17 @@
 /* MIT License
-* 
+*
 * Copyright (C) 2019, 2020, 2021 Famedly GmbH
-* 
+*
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
 * in the Software without restriction, including without limitation the rights
 * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 * copies of the Software, and to permit persons to whom the Software is
 * furnished to do so, subject to the following conditions:
-* 
+*
 * The above copyright notice and this permission notice shall be included in all
 * copies or substantial portions of the Software.
-* 
+*
 * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -23,8 +23,15 @@
 
 import 'dart:convert';
 
+import 'package:enhanced_enum/enhanced_enum.dart';
 import 'package:http/http.dart' as http;
 
+import '../utils/try_get_map_extension.dart';
+
+part 'matrix_exception.g.dart';
+
+// we want to preserve the original naming of the enum values here
+@EnhancedEnum()
 enum MatrixError {
   M_UNKNOWN,
   M_UNKNOWN_TOKEN,
@@ -70,9 +77,9 @@ class MatrixException implements Exception {
   String toString() => '$errcode: $errorMessage';
 
   /// Returns the [ResponseError]. Is ResponseError.NONE if there wasn't an error.
-  MatrixError get error => MatrixError.values.firstWhere(
-      (e) => e.toString() == 'MatrixError.${(raw["errcode"] ?? "")}',
-      orElse: () => MatrixError.M_UNKNOWN);
+  MatrixError get error =>
+      MatrixError.values.fromString(raw.tryGet<String>('errcode') ?? '') ??
+      MatrixError.M_UNKNOWN;
 
   int? get retryAfterMs => raw['retry_after_ms'];
 

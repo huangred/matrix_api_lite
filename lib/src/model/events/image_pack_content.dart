@@ -21,39 +21,35 @@
 * SOFTWARE.
 */
 
+import 'package:enhanced_enum/enhanced_enum.dart';
+
 import '../basic_event.dart';
 import '../../utils/filter_map_extension.dart';
 import '../../utils/try_get_map_extension.dart';
+
+part 'image_pack_content.g.dart';
 
 extension ImagePackContentBasicEventExtension on BasicEvent {
   ImagePackContent get parsedImagePackContent =>
       ImagePackContent.fromJson(content);
 }
 
+@EnhancedEnum(namingConvention: EnhancedEnumNamingConvention.snakeCase)
 enum ImagePackUsage {
   sticker,
   emoticon,
 }
 
 List<ImagePackUsage>? imagePackUsageFromJson(List<String>? json) => json
-    ?.map((v) => {
-          'sticker': ImagePackUsage.sticker,
-          'emoticon': ImagePackUsage.emoticon,
-        }[v])
+    ?.map((v) => ImagePackUsage.values.fromString(v))
     .whereType<ImagePackUsage>()
     .toList();
 
 List<String> imagePackUsageToJson(
     List<ImagePackUsage>? usage, List<String>? prevUsage) {
   final knownUsages = <String>{'sticker', 'emoticon'};
-  final usagesStr = usage
-          ?.map((v) => {
-                ImagePackUsage.sticker: 'sticker',
-                ImagePackUsage.emoticon: 'emoticon',
-              }[v])
-          .whereType<String>()
-          .toList() ??
-      [];
+  final usagesStr =
+      usage?.map((v) => v.name).whereType<String>().toList() ?? [];
   // first we add all the unknown usages and the previous known usages which are new again
   final newUsages = prevUsage
           ?.where((v) => !knownUsages.contains(v) || usagesStr.contains(v))

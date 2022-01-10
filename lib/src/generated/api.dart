@@ -1575,7 +1575,8 @@ class Api {
       if (token != null) 'token': token,
       'type': {
         LoginType.mLoginPassword: 'm.login.password',
-        LoginType.mLoginToken: 'm.login.token'
+        LoginType.mLoginToken: 'm.login.token',
+        LoginType.mLoginJWT: 'm.login.jwt'
       }[type]!,
       if (user != null) 'user': user,
     }));

@@ -844,7 +844,7 @@ class LoginFlow {
 }
 
 @_NameSource('rule override generated')
-enum LoginType { mLoginPassword, mLoginToken }
+enum LoginType { mLoginPassword, mLoginToken, mLoginJWT }
 
 @_NameSource('generated')
 class LoginResponse {

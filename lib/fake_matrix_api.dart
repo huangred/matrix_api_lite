@@ -31,13 +31,15 @@ import 'package:matrix_api_lite/matrix_api_lite.dart';
 
 Map<String, dynamic> decodeJson(dynamic data) {
   if (data is String) {
-    return json.decode(data);
+    return json.decode(data) as Map<String, dynamic>;
   }
-  if (data.isEmpty) {
+  if (data is Map && data.isEmpty) {
     return <String, dynamic>{};
   }
-  return data;
+  return data as Map<String, dynamic>;
 }
+
+T? tryCast<T>(dynamic object) => object is T ? object : null;
 
 /// A mock http client for testing purposes.
 class FakeMatrixApi extends MockClient {
@@ -49,9 +51,8 @@ class FakeMatrixApi extends MockClient {
           // Collect data from Request
           var action = request.url.path;
           if (request.url.path.contains('/_matrix')) {
-            action = request.url.path.split('/_matrix').last +
-                '?' +
-                request.url.query;
+            action =
+                '${request.url.path.split('/_matrix').last}?${request.url.query}';
           }
 
           if (action.endsWith('?')) {
@@ -63,14 +64,14 @@ class FakeMatrixApi extends MockClient {
           final method = request.method;
           final dynamic data =
               method == 'GET' ? request.url.queryParameters : request.body;
-          dynamic res = {};
+          dynamic res = <String, dynamic>{};
           var statusCode = 200;
 
           //print('\$method request to $action with Data: $data');
 
           // Sync requests with timeout
           if (data is Map<String, dynamic> && data['timeout'] is String) {
-            await Future.delayed(Duration(seconds: 5));
+            await Future<void>.delayed(Duration(seconds: 5));
           }
 
           if (request.url.origin != 'https://fakeserver.notexisting') {
@@ -84,13 +85,13 @@ class FakeMatrixApi extends MockClient {
           }
           calledEndpoints[action]!.add(data);
           if (api.containsKey(method) && api[method]!.containsKey(action)) {
-            res = api[method]![action](data);
+            res = api[method]![action]?.call(data);
             if (res is Map && res.containsKey('errcode')) {
               statusCode = 405;
             }
           } else if (method == 'PUT' &&
               action.contains('/client/v3/sendToDevice/')) {
-            res = {};
+            res = <String, dynamic>{};
           } else if (method == 'GET' &&
               action.contains('/client/v3/rooms/') &&
               action.contains('/state/m.room.member/')) {
@@ -170,7 +171,7 @@ class FakeMatrixApi extends MockClient {
         'unsigned': {'age': 1234}
       }
     ],
-    'state': [],
+    'state': <Map<String, dynamic>>[],
   };
 
   static Map<String, dynamic> syncResponse = {
@@ -392,7 +393,7 @@ class FakeMatrixApi extends MockClient {
               'override': [
                 {
                   'actions': ['dont_notify'],
-                  'conditions': [],
+                  'conditions': <Map<String, dynamic>>[],
                   'default': true,
                   'enabled': false,
                   'rule_id': '.m.rule.master'
@@ -426,7 +427,7 @@ class FakeMatrixApi extends MockClient {
                   'rule_id': '!localpart:server.abc'
                 }
               ],
-              'sender': [],
+              'sender': <Map<String, dynamic>>[],
               'underride': [
                 {
                   'actions': [
@@ -676,12 +677,12 @@ class FakeMatrixApi extends MockClient {
 
   static Map<String, dynamic> archiveSyncResponse = {
     'next_batch': Random().nextDouble().toString(),
-    'presence': {'events': []},
-    'account_data': {'events': []},
-    'to_device': {'events': []},
+    'presence': {'events': <Map<String, dynamic>>[]},
+    'account_data': {'events': <Map<String, dynamic>>[]},
+    'to_device': {'events': <Map<String, dynamic>>[]},
     'rooms': {
-      'join': {},
-      'invite': {},
+      'join': <String, dynamic>{},
+      'invite': <String, dynamic>{},
       'leave': {
         '!5345234234:example.com': {
           'timeline': {
@@ -726,7 +727,7 @@ class FakeMatrixApi extends MockClient {
           },
         },
         '!5345234235:example.com': {
-          'timeline': {'events': []},
+          'timeline': {'events': <Map<String, dynamic>>[]},
           'state': {
             'events': [
               {
@@ -862,7 +863,7 @@ class FakeMatrixApi extends MockClient {
         'join_rule': 'public',
         'world_readable': true,
         'guest_can_join': true,
-        'children_state': []
+        'children_state': <Map<String, dynamic>>[]
       },
       {
         'room_id': '!aZUzMIEZvEwnDquxLf:neko.dev',
@@ -875,7 +876,7 @@ class FakeMatrixApi extends MockClient {
         'join_rule': 'public',
         'world_readable': true,
         'guest_can_join': true,
-        'children_state': []
+        'children_state': <Map<String, dynamic>>[]
       },
       {
         'room_id': '!aRzRZBvOAkHMcEjAPS:libera.chat',
@@ -887,7 +888,7 @@ class FakeMatrixApi extends MockClient {
         'join_rule': 'public',
         'world_readable': false,
         'guest_can_join': false,
-        'children_state': []
+        'children_state': <Map<String, dynamic>>[]
       },
       {
         'room_id': '!DXsRRxkqqDhDkAyXfL:matrix.org',
@@ -900,7 +901,7 @@ class FakeMatrixApi extends MockClient {
         'join_rule': 'public',
         'world_readable': false,
         'guest_can_join': false,
-        'children_state': []
+        'children_state': <Map<String, dynamic>>[]
       },
       {
         'room_id': '!tbCRpmsMiwMBlIThOd:matrix.org',
@@ -912,7 +913,7 @@ class FakeMatrixApi extends MockClient {
         'join_rule': 'public',
         'world_readable': false,
         'guest_can_join': false,
-        'children_state': []
+        'children_state': <Map<String, dynamic>>[]
       },
       {
         'room_id': '!LPpmvMsEgDwuSuHSpM:matrix.org',
@@ -924,7 +925,7 @@ class FakeMatrixApi extends MockClient {
         'join_rule': 'public',
         'world_readable': true,
         'guest_can_join': true,
-        'children_state': []
+        'children_state': <Map<String, dynamic>>[]
       },
       {
         'room_id': '!prlZxmnmAGuCYHUNSw:neko.dev',
@@ -937,7 +938,7 @@ class FakeMatrixApi extends MockClient {
         'join_rule': 'public',
         'world_readable': true,
         'guest_can_join': false,
-        'children_state': []
+        'children_state': <Map<String, dynamic>>[]
       },
       {
         'room_id': '!ooHixUOgoLVUjCSMZC:matrix.org',
@@ -949,12 +950,12 @@ class FakeMatrixApi extends MockClient {
         'join_rule': 'public',
         'world_readable': true,
         'guest_can_join': true,
-        'children_state': []
+        'children_state': <Map<String, dynamic>>[]
       }
     ]
   };
 
-  static final Map<String, Map<String, dynamic>> api = {
+  static final Map<String, Map<String, dynamic Function(dynamic)>> api = {
     'GET': {
       '/path/to/auth/error': (var req) => {
             'errcode': 'M_FORBIDDEN',
@@ -981,7 +982,7 @@ class FakeMatrixApi extends MockClient {
                 'tags': {
                   'm.favourite': {'order': 0.1},
                   'u.Work': {'order': 0.7},
-                  'u.Customers': {}
+                  'u.Customers': <String, dynamic>{},
                 }
               },
       '/client/v3/events?from=1234&timeout=10&room_id=%211234': (var req) => {
@@ -1091,7 +1092,7 @@ class FakeMatrixApi extends MockClient {
                   'network_id': 'gitter',
                   'desc': 'Gitter',
                   'icon': 'mxc://example.org/zXyWvUt',
-                  'fields': {}
+                  'fields': <String, dynamic>{}
                 }
               ]
             }
@@ -1609,7 +1610,7 @@ class FakeMatrixApi extends MockClient {
               'override': [
                 {
                   'actions': ['dont_notify'],
-                  'conditions': [],
+                  'conditions': <Map<String, dynamic>>[],
                   'default': true,
                   'enabled': false,
                   'rule_id': '.m.rule.master'
@@ -1628,8 +1629,8 @@ class FakeMatrixApi extends MockClient {
                   'rule_id': '.m.rule.suppress_notices'
                 }
               ],
-              'room': [],
-              'sender': [],
+              'room': <Map<String, dynamic>>[],
+              'sender': <Map<String, dynamic>>[],
               'underride': [
                 {
                   'actions': [
@@ -1779,7 +1780,7 @@ class FakeMatrixApi extends MockClient {
             'algorithm': AlgorithmTypes.megolmBackupV1Curve25519AesSha2,
             'auth_data': {
               'public_key': 'GXYaxqhNhUK28zUdxOmEsFRguz+PzBsDlTLlF0O0RkM',
-              'signatures': {},
+              'signatures': <String, dynamic>{},
             },
             'count': 0,
             'etag': '0',
@@ -1838,15 +1839,15 @@ class FakeMatrixApi extends MockClient {
           (var req) => spaceHierarchyResponse,
     },
     'POST': {
-      '/client/v3/delete_devices': (var req) => {},
-      '/client/v3/account/3pid/add': (var req) => {},
-      '/client/v3/account/3pid/bind': (var req) => {},
+      '/client/v3/delete_devices': (var req) => <String, dynamic>{},
+      '/client/v3/account/3pid/add': (var req) => <String, dynamic>{},
+      '/client/v3/account/3pid/bind': (var req) => <String, dynamic>{},
       '/client/v3/account/3pid/delete': (var req) =>
           {'id_server_unbind_result': 'success'},
       '/client/v3/account/3pid/unbind': (var req) =>
           {'id_server_unbind_result': 'success'},
-      '/client/v3/account/password': (var req) => {},
-      '/client/v3/rooms/1234/report/1234': (var req) => {},
+      '/client/v3/account/password': (var req) => <String, dynamic>{},
+      '/client/v3/rooms/1234/report/1234': (var req) => <String, dynamic>{},
       '/client/v3/search': (var req) => {
             'search_categories': {
               'room_events': {
@@ -1922,8 +1923,9 @@ class FakeMatrixApi extends MockClient {
             'submit_url': 'https://example.org/path/to/submitToken'
           },
       '/client/v3/rooms/!localpart%3Aexample.com/receipt/m.read/%241234%3Aexample.com':
-          (var req) => {},
-      '/client/v3/rooms/!localpart%3Aexample.com/read_markers': (var req) => {},
+          (var req) => <String, dynamic>{},
+      '/client/v3/rooms/!localpart%3Aexample.com/read_markers': (var req) =>
+          <String, dynamic>{},
       '/client/v3/user/${Uri.encodeComponent('alice@example.com')}/filter':
           (var req) => {'filter_id': '1234'},
       '/client/v3/publicRooms?server=example.com': (var req) => {
@@ -1943,49 +1945,59 @@ class FakeMatrixApi extends MockClient {
             'prev_batch': 'p1902',
             'total_room_count_estimate': 115
           },
-      '/client/v3/keys/claim': (var req) => {
-            'failures': {},
-            'one_time_keys': {
-              if (decodeJson(req)['one_time_keys']['@alice:example.com'] !=
-                  null)
-                '@alice:example.com': {
-                  'JLAFKJWSCS': {
-                    'signed_curve25519:AAAAAQ': {
-                      'key': 'ikMXajRlkS7Xi9CROrAh3jXnbygk8mLBdSaY9/al0X0',
-                      'signatures': {
-                        '@alice:example.com': {
-                          'ed25519:JLAFKJWSCS':
-                              'XdboCa0Ljoh0Y0i/IVnmMqy/+T1hJyu8BA/nRYniJMQ7QWh/pGS5AsWswdARD+MAX+r4u98Qzk0y27HUddZXDA'
-                        }
+      '/client/v3/keys/claim': (dynamic req) {
+        final request = decodeJson(req)["one_time_keys"];
+        final keys = (request is Map<String, dynamic>)
+            ? request["one_time_keys"] as Map<String, dynamic>?
+            : null;
+        return {
+          'failures': <String, dynamic>{},
+          'one_time_keys': {
+            if (keys?['@alice:example.com'] != null)
+              '@alice:example.com': {
+                'JLAFKJWSCS': {
+                  'signed_curve25519:AAAAAQ': {
+                    'key': 'ikMXajRlkS7Xi9CROrAh3jXnbygk8mLBdSaY9/al0X0',
+                    'signatures': {
+                      '@alice:example.com': {
+                        'ed25519:JLAFKJWSCS':
+                            'XdboCa0Ljoh0Y0i/IVnmMqy/+T1hJyu8BA/nRYniJMQ7QWh/pGS5AsWswdARD+MAX+r4u98Qzk0y27HUddZXDA'
                       }
                     }
                   }
-                },
-              if (decodeJson(req)['one_time_keys']
-                      ['@test:fakeServer.notExisting'] !=
-                  null)
-                '@test:fakeServer.notExisting': {
-                  'GHTYAJCE': {
-                    'signed_curve25519:AAAAAQ': {
-                      'key': 'qc72ve94cA28iuE0fXa98QO3uls39DHWdQlYyvvhGh0',
-                      'signatures': {
-                        '@test:fakeServer.notExisting': {
-                          'ed25519:GHTYAJCE':
-                              'dFwffr5kTKefO7sjnWLMhTzw7oV31nkPIDRxFy5OQT2OP5++Ao0KRbaBZ6qfuT7lW1owKK0Xk3s7QTBvc/eNDA',
-                        },
+                }
+              },
+            if (keys?['@test:fakeServer.notExisting'] != null)
+              '@test:fakeServer.notExisting': {
+                'GHTYAJCE': {
+                  'signed_curve25519:AAAAAQ': {
+                    'key': 'qc72ve94cA28iuE0fXa98QO3uls39DHWdQlYyvvhGh0',
+                    'signatures': {
+                      '@test:fakeServer.notExisting': {
+                        'ed25519:GHTYAJCE':
+                            'dFwffr5kTKefO7sjnWLMhTzw7oV31nkPIDRxFy5OQT2OP5++Ao0KRbaBZ6qfuT7lW1owKK0Xk3s7QTBvc/eNDA',
                       },
                     },
                   },
                 },
-            }
-          },
-      '/client/v3/rooms/!localpart%3Aexample.com/invite': (var req) => {},
-      '/client/v3/rooms/!localpart%3Aexample.com/leave': (var req) => {},
-      '/client/v3/rooms/!localpart%3Aexample.com/forget': (var req) => {},
-      '/client/v3/rooms/!localpart%3Aserver.abc/kick': (var req) => {},
-      '/client/v3/rooms/!localpart%3Aexample.com/kick': (var req) => {},
-      '/client/v3/rooms/!localpart%3Aexample.com/ban': (var req) => {},
-      '/client/v3/rooms/!localpart%3Aexample.com/unban': (var req) => {},
+              },
+          }
+        };
+      },
+      '/client/v3/rooms/!localpart%3Aexample.com/invite': (var req) =>
+          <String, dynamic>{},
+      '/client/v3/rooms/!localpart%3Aexample.com/leave': (var req) =>
+          <String, dynamic>{},
+      '/client/v3/rooms/!localpart%3Aexample.com/forget': (var req) =>
+          <String, dynamic>{},
+      '/client/v3/rooms/!localpart%3Aserver.abc/kick': (var req) =>
+          <String, dynamic>{},
+      '/client/v3/rooms/!localpart%3Aexample.com/kick': (var req) =>
+          <String, dynamic>{},
+      '/client/v3/rooms/!localpart%3Aexample.com/ban': (var req) =>
+          <String, dynamic>{},
+      '/client/v3/rooms/!localpart%3Aexample.com/unban': (var req) =>
+          <String, dynamic>{},
       '/client/v3/rooms/!localpart%3Aexample.com/join': (var req) =>
           {'room_id': '!localpart:example.com'},
       '/client/v3/join/!localpart%3Aexample.com?server_name=example.com&server_name=example.abc':
@@ -1993,12 +2005,15 @@ class FakeMatrixApi extends MockClient {
       '/client/v3/keys/upload': (var req) => {
             'one_time_key_counts': {
               'curve25519': 10,
-              'signed_curve25519':
-                  decodeJson(req)['one_time_keys']?.keys?.length ?? 0,
+              'signed_curve25519': tryCast<Map<String, Map<String, dynamic>>>(
+                          decodeJson(req))?['one_time_keys']
+                      ?.keys
+                      .length ??
+                  0,
             }
           },
       '/client/v3/keys/query': (var req) => {
-            'failures': {},
+            'failures': <String, dynamic>{},
             'device_keys': {
               '@alice:example.com': {
                 'JLAFKJWSCS': {
@@ -2120,7 +2135,7 @@ class FakeMatrixApi extends MockClient {
                   'ed25519:82mAXjsmbTbrE6zyShpR869jnrANO75H8nYY0nDLoJ8':
                       '82mAXjsmbTbrE6zyShpR869jnrANO75H8nYY0nDLoJ8',
                 },
-                'signatures': {},
+                'signatures': <String, dynamic>{},
               },
               '@othertest:fakeServer.notExisting': {
                 'user_id': '@othertest:fakeServer.notExisting',
@@ -2128,7 +2143,7 @@ class FakeMatrixApi extends MockClient {
                 'keys': {
                   'ed25519:master': 'master',
                 },
-                'signatures': {},
+                'signatures': <String, dynamic>{},
               },
             },
             'self_signing_keys': {
@@ -2152,7 +2167,7 @@ class FakeMatrixApi extends MockClient {
                 'keys': {
                   'ed25519:self_signing': 'self_signing',
                 },
-                'signatures': {},
+                'signatures': <String, dynamic>{},
               },
             },
             'user_signing_keys': {
@@ -2176,7 +2191,7 @@ class FakeMatrixApi extends MockClient {
                 'keys': {
                   'ed25519:user_signing': 'user_signing',
                 },
-                'signatures': {},
+                'signatures': <String, dynamic>{},
               },
             },
           },
@@ -2216,55 +2231,64 @@ class FakeMatrixApi extends MockClient {
           },
       '/media/v3/upload?filename=file.jpeg': (var req) =>
           {'content_uri': 'mxc://example.com/AQwafuaFswefuhsfAFAgsw'},
-      '/client/v3/logout': (var reqI) => {},
-      '/client/v3/pushers/set': (var reqI) => {},
+      '/client/v3/logout': (var reqI) => <String, dynamic>{},
+      '/client/v3/pushers/set': (var reqI) => <String, dynamic>{},
       '/client/v3/join/1234': (var reqI) => {'room_id': '1234'},
-      '/client/v3/logout/all': (var reqI) => {},
+      '/client/v3/logout/all': (var reqI) => <String, dynamic>{},
       '/client/v3/createRoom': (var reqI) => {
             'room_id': '!1234:fakeServer.notExisting',
           },
-      '/client/v3/rooms/!localpart%3Aserver.abc/read_markers': (var reqI) => {},
-      '/client/v3/rooms/!localpart:server.abc/kick': (var reqI) => {},
-      '/client/v3/rooms/!localpart%3Aserver.abc/ban': (var reqI) => {},
-      '/client/v3/rooms/!localpart%3Aserver.abc/unban': (var reqI) => {},
-      '/client/v3/rooms/!localpart%3Aserver.abc/invite': (var reqI) => {},
+      '/client/v3/rooms/!localpart%3Aserver.abc/read_markers': (var reqI) =>
+          <String, dynamic>{},
+      '/client/v3/rooms/!localpart:server.abc/kick': (var reqI) =>
+          <String, dynamic>{},
+      '/client/v3/rooms/!localpart%3Aserver.abc/ban': (var reqI) =>
+          <String, dynamic>{},
+      '/client/v3/rooms/!localpart%3Aserver.abc/unban': (var reqI) =>
+          <String, dynamic>{},
+      '/client/v3/rooms/!localpart%3Aserver.abc/invite': (var reqI) =>
+          <String, dynamic>{},
       '/client/v3/keys/device_signing/upload': (var reqI) {
-        return {};
+        return <String, dynamic>{};
       },
-      '/client/v3/keys/signatures/upload': (var reqI) => {'failures': {}},
+      '/client/v3/keys/signatures/upload': (var reqI) =>
+          {'failures': <String, dynamic>{}},
       '/client/v3/room_keys/version': (var reqI) => {'version': '5'},
     },
     'PUT': {
       '/client/v3/user/%40test%3AfakeServer.notExisting/account_data/m.ignored_user_list':
-          (var req) => {},
+          (var req) => <String, dynamic>{},
       '/client/v3/presence/${Uri.encodeComponent('@alice:example.com')}/status':
-          (var req) => {},
-      '/client/v3/pushrules/global/content/nocake/enabled': (var req) => {},
-      '/client/v3/pushrules/global/content/nocake/actions': (var req) => {},
+          (var req) => <String, dynamic>{},
+      '/client/v3/pushrules/global/content/nocake/enabled': (var req) =>
+          <String, dynamic>{},
+      '/client/v3/pushrules/global/content/nocake/actions': (var req) =>
+          <String, dynamic>{},
       '/client/v3/rooms/!localpart%3Aserver.abc/state/m.room.history_visibility':
-          (var req) => {},
+          (var req) => <String, dynamic>{},
       '/client/v3/rooms/!localpart%3Aserver.abc/state/m.room.join_rules':
-          (var req) => {},
+          (var req) => <String, dynamic>{},
       '/client/v3/rooms/!localpart%3Aserver.abc/state/m.room.guest_access':
-          (var req) => {},
+          (var req) => <String, dynamic>{},
       '/client/v3/rooms/!localpart%3Aserver.abc/send/m.call.invite/1234':
-          (var req) => {},
+          (var req) => <String, dynamic>{},
       '/client/v3/rooms/!localpart%3Aserver.abc/send/m.call.answer/1234':
-          (var req) => {},
+          (var req) => <String, dynamic>{},
       '/client/v3/rooms/!localpart%3Aserver.abc/send/m.call.candidates/1234':
-          (var req) => {},
+          (var req) => <String, dynamic>{},
       '/client/v3/rooms/!localpart%3Aserver.abc/send/m.call.hangup/1234':
-          (var req) => {},
+          (var req) => <String, dynamic>{},
       '/client/v3/rooms/!1234%3Aexample.com/redact/1143273582443PhrSn%3Aexample.org/1234':
           (var req) => {'event_id': '1234'},
       '/client/v3/pushrules/global/room/!localpart%3Aserver.abc': (var req) =>
-          {},
+          <String, dynamic>{},
       '/client/v3/pushrules/global/override/.m.rule.master/enabled':
-          (var req) => {},
+          (var req) => <String, dynamic>{},
       '/client/v3/pushrules/global/content/nocake?before=1&after=2':
-          (var req) => {},
-      '/client/v3/devices/QBUAZIFURK': (var req) => {},
-      '/client/v3/directory/room/%23testalias%3Aexample.com': (var reqI) => {},
+          (var req) => <String, dynamic>{},
+      '/client/v3/devices/QBUAZIFURK': (var req) => <String, dynamic>{},
+      '/client/v3/directory/room/%23testalias%3Aexample.com': (var reqI) =>
+          <String, dynamic>{},
       '/client/v3/rooms/!localpart%3Aserver.abc/send/m.room.message/testtxid':
           (var reqI) => {
                 'event_id': '\$event${FakeMatrixApi.eventCounter++}',
@@ -2274,7 +2298,7 @@ class FakeMatrixApi extends MockClient {
                 'event_id': '\$event${FakeMatrixApi.eventCounter++}',
               },
       '/client/v3/rooms/!localpart%3Aexample.com/typing/%40alice%3Aexample.com':
-          (var req) => {},
+          (var req) => <String, dynamic>{},
       '/client/v3/rooms/!1234%3Aexample.com/send/m.room.message/1234':
           (var reqI) => {
                 'event_id': '\$event${FakeMatrixApi.eventCounter++}',
@@ -2284,25 +2308,27 @@ class FakeMatrixApi extends MockClient {
                 'event_id': '\$event${FakeMatrixApi.eventCounter++}',
               },
       '/client/v3/user/%40test%3AfakeServer.notExisting/rooms/!localpart%3Aserver.abc/tags/m.favourite':
-          (var req) => {},
+          (var req) => <String, dynamic>{},
       '/client/v3/user/%40alice%3Aexample.com/rooms/!localpart%3Aexample.com/tags/testtag':
-          (var req) => {},
+          (var req) => <String, dynamic>{},
       '/client/v3/user/%40alice%3Aexample.com/account_data/test.account.data':
-          (var req) => {},
+          (var req) => <String, dynamic>{},
       '/client/v3/user/%40test%3AfakeServer.notExisting/account_data/best%20animal':
-          (var req) => {},
+          (var req) => <String, dynamic>{},
       '/client/v3/user/%40alice%3Aexample.com/rooms/1234/account_data/test.account.data':
-          (var req) => {},
+          (var req) => <String, dynamic>{},
       '/client/v3/user/%40test%3AfakeServer.notExisting/rooms/!localpart%3Aserver.abc/account_data/com.famedly.marked_unread':
-          (var req) => {},
+          (var req) => <String, dynamic>{},
       '/client/v3/user/%40test%3AfakeServer.notExisting/account_data/m.direct':
-          (var req) => {},
+          (var req) => <String, dynamic>{},
       '/client/v3/user/%40othertest%3AfakeServer.notExisting/account_data/m.direct':
-          (var req) => {},
-      '/client/v3/profile/%40alice%3Aexample.com/displayname': (var reqI) => {},
-      '/client/v3/profile/%40alice%3Aexample.com/avatar_url': (var reqI) => {},
+          (var req) => <String, dynamic>{},
+      '/client/v3/profile/%40alice%3Aexample.com/displayname': (var reqI) =>
+          <String, dynamic>{},
+      '/client/v3/profile/%40alice%3Aexample.com/avatar_url': (var reqI) =>
+          <String, dynamic>{},
       '/client/v3/profile/%40test%3AfakeServer.notExisting/avatar_url':
-          (var reqI) => {},
+          (var reqI) => <String, dynamic>{},
       '/client/v3/rooms/!localpart%3Aserver.abc/state/m.room.encryption':
           (var reqI) => {'event_id': 'YUwRidLecu:example.com'},
       '/client/v3/rooms/!localpart%3Aserver.abc/state/m.room.avatar':
@@ -2328,8 +2354,8 @@ class FakeMatrixApi extends MockClient {
                 'event_id': '42',
               },
       '/client/v3/directory/list/room/!localpart%3Aexample.com': (var req) =>
-          {},
-      '/client/v3/room_keys/version/5': (var req) => {},
+          <String, dynamic>{},
+      '/client/v3/room_keys/version/5': (var req) => <String, dynamic>{},
       '/client/v3/room_keys/keys/${Uri.encodeComponent('!726s6s6q:example.com')}/${Uri.encodeComponent('ciM/JWTPrmiWPPZNkRLDPQYf9AW/I46bxyLSr+Bx5oU')}?version=5':
           (var req) => {
                 'etag': 'asdf',
@@ -2347,16 +2373,18 @@ class FakeMatrixApi extends MockClient {
     },
     'DELETE': {
       '/unknown/token': (var req) => {'errcode': 'M_UNKNOWN_TOKEN'},
-      '/client/v3/devices/QBUAZIFURK': (var req) => {},
-      '/client/v3/directory/room/%23testalias%3Aexample.com': (var reqI) => {},
-      '/client/v3/pushrules/global/content/nocake': (var req) => {},
+      '/client/v3/devices/QBUAZIFURK': (var req) => <String, dynamic>{},
+      '/client/v3/directory/room/%23testalias%3Aexample.com': (var reqI) =>
+          <String, dynamic>{},
+      '/client/v3/pushrules/global/content/nocake': (var req) =>
+          <String, dynamic>{},
       '/client/v3/pushrules/global/override/!localpart%3Aserver.abc':
-          (var req) => {},
+          (var req) => <String, dynamic>{},
       '/client/v3/user/%40test%3AfakeServer.notExisting/rooms/!localpart%3Aserver.abc/tags/m.favourite':
-          (var req) => {},
+          (var req) => <String, dynamic>{},
       '/client/v3/user/%40alice%3Aexample.com/rooms/!localpart%3Aexample.com/tags/testtag':
-          (var req) => {},
-      '/client/v3/room_keys/version/5': (var req) => {},
+          (var req) => <String, dynamic>{},
+      '/client/v3/room_keys/version/5': (var req) => <String, dynamic>{},
       '/client/v3/room_keys/keys/${Uri.encodeComponent('!726s6s6q:example.com')}/${Uri.encodeComponent('ciM/JWTPrmiWPPZNkRLDPQYf9AW/I46bxyLSr+Bx5oU')}?version=5':
           (var req) => {
                 'etag': 'asdf',

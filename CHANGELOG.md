@@ -1,3 +1,28 @@
+## [1.1.7] - 29th Aug 2022
+- fix: Parsing of MatrixException parameters
+
+## [1.1.6] - 26th Aug 2022
+- fix: Fixed missing .pub-cache folder creation in .gitlab-ci.yml
+
+## [1.1.5] - 25th Aug 2022
+- fix: Fixed dysfunctional key-verification (Emoji+manual)
+
+## [1.1.4] - 25th Aug 2022
+- Revert "fix: Secret storage keys are used as account data but are not uri encoded"
+- chore: disable dynamic calls (Nicolas Werner)
+- chore: export filter map extension (Nicolas Werner)
+- chore: strict casts (Nicolas Werner)
+- chore: strict inference (Nicolas Werner)
+- chore: strict raw types (Nicolas Werner)
+- chore: upgrade from pedantic to lints (Nicolas Werner)
+
+## [1.1.3] - 2nd Aug 2022
+- fix: Secret storage keys are used as account data but are not uri encoded
+- chore: export filter map extension
+
+## [1.1.2] - 2nd Aug 2022
+- feat: Add a flag to disable colors in logs
+
 ## 1.1.1
 
 - fix: wrong type for children_state in spaces hierarchy API

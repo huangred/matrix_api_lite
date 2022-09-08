@@ -1,13 +1,19 @@
-include: package:pedantic/analysis_options.yaml
+include: package:lints/recommended.yaml
 
 linter:
   rules:
-    - camel_case_types
-    - avoid_print
-    - prefer_final_locals
-    - prefer_final_in_for_each
+    camel_case_types: true
+    avoid_print: true
+    constant_identifier_names: false
+    prefer_final_locals: true
+    prefer_final_in_for_each: true
+    avoid_dynamic_calls: true
 
 analyzer:
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
   errors:
     todo: ignore
   exclude:

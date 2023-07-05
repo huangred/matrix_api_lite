@@ -1,13 +1,14 @@
+import 'package:enhanced_enum/enhanced_enum.dart';
+
 import '../model/auth/authentication_data.dart';
-import '../model/auth/authentication_types.dart';
 import '../model/auth/authentication_identifier.dart';
+import '../model/auth/authentication_types.dart';
+import '../model/children_state.dart';
+import '../model/matrix_event.dart';
 import '../model/matrix_keys.dart';
 import '../model/sync_update.dart';
-import '../model/matrix_event.dart';
-import '../model/children_state.dart';
-
 import 'internal.dart';
-import 'package:enhanced_enum/enhanced_enum.dart';
+
 part 'model.g.dart';
 
 class _NameSource {
@@ -15,15 +16,16 @@ class _NameSource {
   const _NameSource(this.source);
 }
 
+///
 @_NameSource('spec')
 class HomeserverInformation {
   HomeserverInformation({
     required this.baseUrl,
   });
 
-  HomeserverInformation.fromJson(Map<String, dynamic> json)
-      : baseUrl = Uri.parse(json['base_url']);
-  Map<String, dynamic> toJson() => {
+  HomeserverInformation.fromJson(Map<String, Object?> json)
+      : baseUrl = Uri.parse(json['base_url'] as String);
+  Map<String, Object?> toJson() => {
         'base_url': baseUrl.toString(),
       };
 
@@ -31,15 +33,16 @@ class HomeserverInformation {
   Uri baseUrl;
 }
 
+///
 @_NameSource('spec')
 class IdentityServerInformation {
   IdentityServerInformation({
     required this.baseUrl,
   });
 
-  IdentityServerInformation.fromJson(Map<String, dynamic> json)
-      : baseUrl = Uri.parse(json['base_url']);
-  Map<String, dynamic> toJson() => {
+  IdentityServerInformation.fromJson(Map<String, Object?> json)
+      : baseUrl = Uri.parse(json['base_url'] as String);
+  Map<String, Object?> toJson() => {
         'base_url': baseUrl.toString(),
       };
 
@@ -57,16 +60,17 @@ class DiscoveryInformation {
     this.additionalProperties = const {},
   });
 
-  DiscoveryInformation.fromJson(Map<String, dynamic> json)
-      : mHomeserver = HomeserverInformation.fromJson(json['m.homeserver']),
+  DiscoveryInformation.fromJson(Map<String, Object?> json)
+      : mHomeserver = HomeserverInformation.fromJson(
+            json['m.homeserver'] as Map<String, Object?>),
         mIdentityServer = ((v) => v != null
-            ? IdentityServerInformation.fromJson(v)
+            ? IdentityServerInformation.fromJson(v as Map<String, Object?>)
             : null)(json['m.identity_server']),
         additionalProperties = Map.fromEntries(json.entries
             .where(
                 (e) => !['m.homeserver', 'm.identity_server'].contains(e.key))
-            .map((e) => MapEntry(e.key, e.value as Map<String, dynamic>)));
-  Map<String, dynamic> toJson() {
+            .map((e) => MapEntry(e.key, e.value as Map<String, Object?>)));
+  Map<String, Object?> toJson() {
     final mIdentityServer = this.mIdentityServer;
     return {
       ...additionalProperties,
@@ -82,9 +86,10 @@ class DiscoveryInformation {
   /// Used by clients to discover identity server information.
   IdentityServerInformation? mIdentityServer;
 
-  Map<String, Map<String, dynamic>> additionalProperties;
+  Map<String, Map<String, Object?>> additionalProperties;
 }
 
+///
 @_NameSource('spec')
 class PublicRoomsChunk {
   PublicRoomsChunk({
@@ -95,13 +100,14 @@ class PublicRoomsChunk {
     this.name,
     required this.numJoinedMembers,
     required this.roomId,
+    this.roomType,
     this.topic,
     required this.worldReadable,
   });
 
-  PublicRoomsChunk.fromJson(Map<String, dynamic> json)
-      : avatarUrl =
-            ((v) => v != null ? Uri.parse(v) : null)(json['avatar_url']),
+  PublicRoomsChunk.fromJson(Map<String, Object?> json)
+      : avatarUrl = ((v) =>
+            v != null ? Uri.parse(v as String) : null)(json['avatar_url']),
         canonicalAlias =
             ((v) => v != null ? v as String : null)(json['canonical_alias']),
         guestCanJoin = json['guest_can_join'] as bool,
@@ -109,13 +115,15 @@ class PublicRoomsChunk {
         name = ((v) => v != null ? v as String : null)(json['name']),
         numJoinedMembers = json['num_joined_members'] as int,
         roomId = json['room_id'] as String,
+        roomType = ((v) => v != null ? v as String : null)(json['room_type']),
         topic = ((v) => v != null ? v as String : null)(json['topic']),
         worldReadable = json['world_readable'] as bool;
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final avatarUrl = this.avatarUrl;
     final canonicalAlias = this.canonicalAlias;
     final joinRule = this.joinRule;
     final name = this.name;
+    final roomType = this.roomType;
     final topic = this.topic;
     return {
       if (avatarUrl != null) 'avatar_url': avatarUrl.toString(),
@@ -125,6 +133,7 @@ class PublicRoomsChunk {
       if (name != null) 'name': name,
       'num_joined_members': numJoinedMembers,
       'room_id': roomId,
+      if (roomType != null) 'room_type': roomType,
       if (topic != null) 'topic': topic,
       'world_readable': worldReadable,
     };
@@ -154,6 +163,9 @@ class PublicRoomsChunk {
   /// The ID of the room.
   String roomId;
 
+  /// The `type` of room (from [`m.room.create`](https://spec.matrix.org/unstable/client-server-api/#mroomcreate)), if any.
+  String? roomType;
+
   /// The topic of the room, if any.
   String? topic;
 
@@ -161,19 +173,20 @@ class PublicRoomsChunk {
   bool worldReadable;
 }
 
-@_NameSource('rule override generated')
-class SpaceRoomsChunkBase {
-  SpaceRoomsChunkBase({
+///
+@_NameSource('spec')
+class ChildRoomsChunk {
+  ChildRoomsChunk({
     required this.childrenState,
     this.roomType,
   });
 
-  SpaceRoomsChunkBase.fromJson(Map<String, dynamic> json)
+  ChildRoomsChunk.fromJson(Map<String, Object?> json)
       : childrenState = (json['children_state'] as List)
-            .map((v) => ChildrenState.fromJson(v))
+            .map((v) => ChildrenState.fromJson(v as Map<String, Object?>))
             .toList(),
         roomType = ((v) => v != null ? v as String : null)(json['room_type']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final roomType = this.roomType;
     return {
       'children_state': childrenState.map((v) => v.toJson()).toList(),
@@ -191,8 +204,9 @@ class SpaceRoomsChunkBase {
   String? roomType;
 }
 
+///
 @_NameSource('rule override generated')
-class SpaceRoomsChunk implements PublicRoomsChunk, SpaceRoomsChunkBase {
+class SpaceRoomsChunk implements PublicRoomsChunk, ChildRoomsChunk {
   SpaceRoomsChunk({
     this.avatarUrl,
     this.canonicalAlias,
@@ -201,15 +215,15 @@ class SpaceRoomsChunk implements PublicRoomsChunk, SpaceRoomsChunkBase {
     this.name,
     required this.numJoinedMembers,
     required this.roomId,
+    this.roomType,
     this.topic,
     required this.worldReadable,
     required this.childrenState,
-    this.roomType,
   });
 
-  SpaceRoomsChunk.fromJson(Map<String, dynamic> json)
-      : avatarUrl =
-            ((v) => v != null ? Uri.parse(v) : null)(json['avatar_url']),
+  SpaceRoomsChunk.fromJson(Map<String, Object?> json)
+      : avatarUrl = ((v) =>
+            v != null ? Uri.parse(v as String) : null)(json['avatar_url']),
         canonicalAlias =
             ((v) => v != null ? v as String : null)(json['canonical_alias']),
         guestCanJoin = json['guest_can_join'] as bool,
@@ -217,19 +231,19 @@ class SpaceRoomsChunk implements PublicRoomsChunk, SpaceRoomsChunkBase {
         name = ((v) => v != null ? v as String : null)(json['name']),
         numJoinedMembers = json['num_joined_members'] as int,
         roomId = json['room_id'] as String,
+        roomType = ((v) => v != null ? v as String : null)(json['room_type']),
         topic = ((v) => v != null ? v as String : null)(json['topic']),
         worldReadable = json['world_readable'] as bool,
         childrenState = (json['children_state'] as List)
-            .map((v) => ChildrenState.fromJson(v))
-            .toList(),
-        roomType = ((v) => v != null ? v as String : null)(json['room_type']);
-  Map<String, dynamic> toJson() {
+            .map((v) => ChildrenState.fromJson(v as Map<String, Object?>))
+            .toList();
+  Map<String, Object?> toJson() {
     final avatarUrl = this.avatarUrl;
     final canonicalAlias = this.canonicalAlias;
     final joinRule = this.joinRule;
     final name = this.name;
-    final topic = this.topic;
     final roomType = this.roomType;
+    final topic = this.topic;
     return {
       if (avatarUrl != null) 'avatar_url': avatarUrl.toString(),
       if (canonicalAlias != null) 'canonical_alias': canonicalAlias,
@@ -238,10 +252,10 @@ class SpaceRoomsChunk implements PublicRoomsChunk, SpaceRoomsChunkBase {
       if (name != null) 'name': name,
       'num_joined_members': numJoinedMembers,
       'room_id': roomId,
+      if (roomType != null) 'room_type': roomType,
       if (topic != null) 'topic': topic,
       'world_readable': worldReadable,
       'children_state': childrenState.map((v) => v.toJson()).toList(),
-      if (roomType != null) 'room_type': roomType,
     };
   }
 
@@ -269,6 +283,9 @@ class SpaceRoomsChunk implements PublicRoomsChunk, SpaceRoomsChunkBase {
   /// The ID of the room.
   String roomId;
 
+  /// The `type` of room (from [`m.room.create`](https://spec.matrix.org/unstable/client-server-api/#mroomcreate)), if any.
+  String? roomType;
+
   /// The topic of the room, if any.
   String? topic;
 
@@ -280,11 +297,9 @@ class SpaceRoomsChunk implements PublicRoomsChunk, SpaceRoomsChunkBase {
   ///
   /// If the room is not a space-room, this should be empty.
   List<ChildrenState> childrenState;
-
-  /// The `type` of room (from [`m.room.create`](https://spec.matrix.org/unstable/client-server-api/#mroomcreate)), if any.
-  String? roomType;
 }
 
+///
 @_NameSource('generated')
 class GetSpaceHierarchyResponse {
   GetSpaceHierarchyResponse({
@@ -292,12 +307,12 @@ class GetSpaceHierarchyResponse {
     required this.rooms,
   });
 
-  GetSpaceHierarchyResponse.fromJson(Map<String, dynamic> json)
+  GetSpaceHierarchyResponse.fromJson(Map<String, Object?> json)
       : nextBatch = ((v) => v != null ? v as String : null)(json['next_batch']),
         rooms = (json['rooms'] as List)
-            .map((v) => SpaceRoomsChunk.fromJson(v))
+            .map((v) => SpaceRoomsChunk.fromJson(v as Map<String, Object?>))
             .toList();
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final nextBatch = this.nextBatch;
     return {
       if (nextBatch != null) 'next_batch': nextBatch,
@@ -313,6 +328,203 @@ class GetSpaceHierarchyResponse {
   List<SpaceRoomsChunk> rooms;
 }
 
+///
+@_NameSource('rule override generated')
+@EnhancedEnum()
+enum Direction {
+  @EnhancedEnumValue(name: 'b')
+  b,
+  @EnhancedEnumValue(name: 'f')
+  f
+}
+
+///
+@_NameSource('generated')
+class GetRelatingEventsResponse {
+  GetRelatingEventsResponse({
+    required this.chunk,
+    this.nextBatch,
+    this.prevBatch,
+  });
+
+  GetRelatingEventsResponse.fromJson(Map<String, Object?> json)
+      : chunk = (json['chunk'] as List)
+            .map((v) => MatrixEvent.fromJson(v as Map<String, Object?>))
+            .toList(),
+        nextBatch = ((v) => v != null ? v as String : null)(json['next_batch']),
+        prevBatch = ((v) => v != null ? v as String : null)(json['prev_batch']);
+  Map<String, Object?> toJson() {
+    final nextBatch = this.nextBatch;
+    final prevBatch = this.prevBatch;
+    return {
+      'chunk': chunk.map((v) => v.toJson()).toList(),
+      if (nextBatch != null) 'next_batch': nextBatch,
+      if (prevBatch != null) 'prev_batch': prevBatch,
+    };
+  }
+
+  /// The child events of the requested event, ordered topologically most-recent first.
+  List<MatrixEvent> chunk;
+
+  /// An opaque string representing a pagination token. The absence of this token
+  /// means there are no more results to fetch and the client should stop paginating.
+  String? nextBatch;
+
+  /// An opaque string representing a pagination token. The absence of this token
+  /// means this is the start of the result set, i.e. this is the first batch/page.
+  String? prevBatch;
+}
+
+///
+@_NameSource('generated')
+class GetRelatingEventsWithRelTypeResponse {
+  GetRelatingEventsWithRelTypeResponse({
+    required this.chunk,
+    this.nextBatch,
+    this.prevBatch,
+  });
+
+  GetRelatingEventsWithRelTypeResponse.fromJson(Map<String, Object?> json)
+      : chunk = (json['chunk'] as List)
+            .map((v) => MatrixEvent.fromJson(v as Map<String, Object?>))
+            .toList(),
+        nextBatch = ((v) => v != null ? v as String : null)(json['next_batch']),
+        prevBatch = ((v) => v != null ? v as String : null)(json['prev_batch']);
+  Map<String, Object?> toJson() {
+    final nextBatch = this.nextBatch;
+    final prevBatch = this.prevBatch;
+    return {
+      'chunk': chunk.map((v) => v.toJson()).toList(),
+      if (nextBatch != null) 'next_batch': nextBatch,
+      if (prevBatch != null) 'prev_batch': prevBatch,
+    };
+  }
+
+  /// The child events of the requested event, ordered topologically
+  /// most-recent first. The events returned will match the `relType`
+  /// supplied in the URL.
+  List<MatrixEvent> chunk;
+
+  /// An opaque string representing a pagination token. The absence of this token
+  /// means there are no more results to fetch and the client should stop paginating.
+  String? nextBatch;
+
+  /// An opaque string representing a pagination token. The absence of this token
+  /// means this is the start of the result set, i.e. this is the first batch/page.
+  String? prevBatch;
+}
+
+///
+@_NameSource('generated')
+class GetRelatingEventsWithRelTypeAndEventTypeResponse {
+  GetRelatingEventsWithRelTypeAndEventTypeResponse({
+    required this.chunk,
+    this.nextBatch,
+    this.prevBatch,
+  });
+
+  GetRelatingEventsWithRelTypeAndEventTypeResponse.fromJson(
+      Map<String, Object?> json)
+      : chunk = (json['chunk'] as List)
+            .map((v) => MatrixEvent.fromJson(v as Map<String, Object?>))
+            .toList(),
+        nextBatch = ((v) => v != null ? v as String : null)(json['next_batch']),
+        prevBatch = ((v) => v != null ? v as String : null)(json['prev_batch']);
+  Map<String, Object?> toJson() {
+    final nextBatch = this.nextBatch;
+    final prevBatch = this.prevBatch;
+    return {
+      'chunk': chunk.map((v) => v.toJson()).toList(),
+      if (nextBatch != null) 'next_batch': nextBatch,
+      if (prevBatch != null) 'prev_batch': prevBatch,
+    };
+  }
+
+  /// The child events of the requested event, ordered topologically most-recent
+  /// first. The events returned will match the `relType` and `eventType` supplied
+  /// in the URL.
+  List<MatrixEvent> chunk;
+
+  /// An opaque string representing a pagination token. The absence of this token
+  /// means there are no more results to fetch and the client should stop paginating.
+  String? nextBatch;
+
+  /// An opaque string representing a pagination token. The absence of this token
+  /// means this is the start of the result set, i.e. this is the first batch/page.
+  String? prevBatch;
+}
+
+///
+@_NameSource('generated')
+@EnhancedEnum()
+enum Include {
+  @EnhancedEnumValue(name: 'all')
+  all,
+  @EnhancedEnumValue(name: 'participated')
+  participated
+}
+
+///
+@_NameSource('generated')
+class GetThreadRootsResponse {
+  GetThreadRootsResponse({
+    required this.chunk,
+    this.nextBatch,
+  });
+
+  GetThreadRootsResponse.fromJson(Map<String, Object?> json)
+      : chunk = (json['chunk'] as List)
+            .map((v) => MatrixEvent.fromJson(v as Map<String, Object?>))
+            .toList(),
+        nextBatch = ((v) => v != null ? v as String : null)(json['next_batch']);
+  Map<String, Object?> toJson() {
+    final nextBatch = this.nextBatch;
+    return {
+      'chunk': chunk.map((v) => v.toJson()).toList(),
+      if (nextBatch != null) 'next_batch': nextBatch,
+    };
+  }
+
+  /// The thread roots, ordered by the `latest_event` in each event's aggregation bundle. All events
+  /// returned include bundled [aggregations](https://spec.matrix.org/unstable/client-server-api/#aggregations).
+  ///
+  /// If the thread root event was sent by an [ignored user](https://spec.matrix.org/unstable/client-server-api/#ignoring-users), the
+  /// event is returned redacted to the caller. This is to simulate the same behaviour of a client doing
+  /// aggregation locally on the thread.
+  List<MatrixEvent> chunk;
+
+  /// A token to supply to `from` to keep paginating the responses. Not present when there are
+  /// no further results.
+  String? nextBatch;
+}
+
+///
+@_NameSource('generated')
+class GetEventByTimestampResponse {
+  GetEventByTimestampResponse({
+    required this.eventId,
+    required this.originServerTs,
+  });
+
+  GetEventByTimestampResponse.fromJson(Map<String, Object?> json)
+      : eventId = json['event_id'] as String,
+        originServerTs = json['origin_server_ts'] as int;
+  Map<String, Object?> toJson() => {
+        'event_id': eventId,
+        'origin_server_ts': originServerTs,
+      };
+
+  /// The ID of the event found
+  String eventId;
+
+  /// The event's timestamp, in milliseconds since the Unix epoch.
+  /// This makes it easy to do a quick comparison to see if the
+  /// `event_id` fetched is too far out of range to be useful for your
+  /// use case.
+  int originServerTs;
+}
+
+///
 @_NameSource('rule override generated')
 @EnhancedEnum()
 enum ThirdPartyIdentifierMedium {
@@ -322,6 +534,7 @@ enum ThirdPartyIdentifierMedium {
   msisdn
 }
 
+///
 @_NameSource('spec')
 class ThirdPartyIdentifier {
   ThirdPartyIdentifier({
@@ -331,12 +544,13 @@ class ThirdPartyIdentifier {
     required this.validatedAt,
   });
 
-  ThirdPartyIdentifier.fromJson(Map<String, dynamic> json)
+  ThirdPartyIdentifier.fromJson(Map<String, Object?> json)
       : addedAt = json['added_at'] as int,
         address = json['address'] as String,
-        medium = ThirdPartyIdentifierMedium.values.fromString(json['medium'])!,
+        medium = ThirdPartyIdentifierMedium.values
+            .fromString(json['medium'] as String)!,
         validatedAt = json['validated_at'] as int;
-  Map<String, dynamic> toJson() => {
+  Map<String, Object?> toJson() => {
         'added_at': addedAt,
         'address': address,
         'medium': medium.name,
@@ -357,6 +571,7 @@ class ThirdPartyIdentifier {
   int validatedAt;
 }
 
+///
 @_NameSource('spec')
 class ThreePidCredentials {
   ThreePidCredentials({
@@ -366,12 +581,12 @@ class ThreePidCredentials {
     required this.sid,
   });
 
-  ThreePidCredentials.fromJson(Map<String, dynamic> json)
+  ThreePidCredentials.fromJson(Map<String, Object?> json)
       : clientSecret = json['client_secret'] as String,
         idAccessToken = json['id_access_token'] as String,
         idServer = json['id_server'] as String,
         sid = json['sid'] as String;
-  Map<String, dynamic> toJson() => {
+  Map<String, Object?> toJson() => {
         'client_secret': clientSecret,
         'id_access_token': idAccessToken,
         'id_server': idServer,
@@ -393,6 +608,7 @@ class ThreePidCredentials {
   String sid;
 }
 
+///
 @_NameSource('generated')
 @EnhancedEnum()
 enum IdServerUnbindResult {
@@ -402,6 +618,7 @@ enum IdServerUnbindResult {
   success
 }
 
+///
 @_NameSource('spec')
 class RequestTokenResponse {
   RequestTokenResponse({
@@ -409,11 +626,11 @@ class RequestTokenResponse {
     this.submitUrl,
   });
 
-  RequestTokenResponse.fromJson(Map<String, dynamic> json)
+  RequestTokenResponse.fromJson(Map<String, Object?> json)
       : sid = json['sid'] as String,
-        submitUrl =
-            ((v) => v != null ? Uri.parse(v) : null)(json['submit_url']);
-  Map<String, dynamic> toJson() {
+        submitUrl = ((v) =>
+            v != null ? Uri.parse(v as String) : null)(json['submit_url']);
+  Map<String, Object?> toJson() {
     final submitUrl = this.submitUrl;
     return {
       'sid': sid,
@@ -439,6 +656,7 @@ class RequestTokenResponse {
   Uri? submitUrl;
 }
 
+///
 @_NameSource('rule override generated')
 class TokenOwnerInfo {
   TokenOwnerInfo({
@@ -447,11 +665,11 @@ class TokenOwnerInfo {
     required this.userId,
   });
 
-  TokenOwnerInfo.fromJson(Map<String, dynamic> json)
+  TokenOwnerInfo.fromJson(Map<String, Object?> json)
       : deviceId = ((v) => v != null ? v as String : null)(json['device_id']),
         isGuest = ((v) => v != null ? v as bool : null)(json['is_guest']),
         userId = json['user_id'] as String;
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final deviceId = this.deviceId;
     final isGuest = this.isGuest;
     return {
@@ -476,6 +694,7 @@ class TokenOwnerInfo {
   String userId;
 }
 
+///
 @_NameSource('spec')
 class ConnectionInfo {
   ConnectionInfo({
@@ -484,11 +703,11 @@ class ConnectionInfo {
     this.userAgent,
   });
 
-  ConnectionInfo.fromJson(Map<String, dynamic> json)
+  ConnectionInfo.fromJson(Map<String, Object?> json)
       : ip = ((v) => v != null ? v as String : null)(json['ip']),
         lastSeen = ((v) => v != null ? v as int : null)(json['last_seen']),
         userAgent = ((v) => v != null ? v as String : null)(json['user_agent']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final ip = this.ip;
     final lastSeen = this.lastSeen;
     final userAgent = this.userAgent;
@@ -509,17 +728,20 @@ class ConnectionInfo {
   String? userAgent;
 }
 
+///
 @_NameSource('spec')
 class SessionInfo {
   SessionInfo({
     this.connections,
   });
 
-  SessionInfo.fromJson(Map<String, dynamic> json)
+  SessionInfo.fromJson(Map<String, Object?> json)
       : connections = ((v) => v != null
-            ? (v as List).map((v) => ConnectionInfo.fromJson(v)).toList()
+            ? (v as List)
+                .map((v) => ConnectionInfo.fromJson(v as Map<String, Object?>))
+                .toList()
             : null)(json['connections']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final connections = this.connections;
     return {
       if (connections != null)
@@ -531,17 +753,20 @@ class SessionInfo {
   List<ConnectionInfo>? connections;
 }
 
+///
 @_NameSource('spec')
 class DeviceInfo {
   DeviceInfo({
     this.sessions,
   });
 
-  DeviceInfo.fromJson(Map<String, dynamic> json)
+  DeviceInfo.fromJson(Map<String, Object?> json)
       : sessions = ((v) => v != null
-            ? (v as List).map((v) => SessionInfo.fromJson(v)).toList()
+            ? (v as List)
+                .map((v) => SessionInfo.fromJson(v as Map<String, Object?>))
+                .toList()
             : null)(json['sessions']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final sessions = this.sessions;
     return {
       if (sessions != null)
@@ -553,6 +778,7 @@ class DeviceInfo {
   List<SessionInfo>? sessions;
 }
 
+///
 @_NameSource('rule override generated')
 class WhoIsInfo {
   WhoIsInfo({
@@ -560,13 +786,13 @@ class WhoIsInfo {
     this.userId,
   });
 
-  WhoIsInfo.fromJson(Map<String, dynamic> json)
+  WhoIsInfo.fromJson(Map<String, Object?> json)
       : devices = ((v) => v != null
-            ? (v as Map<String, dynamic>)
-                .map((k, v) => MapEntry(k, DeviceInfo.fromJson(v)))
+            ? (v as Map<String, Object?>).map((k, v) =>
+                MapEntry(k, DeviceInfo.fromJson(v as Map<String, Object?>)))
             : null)(json['devices']),
         userId = ((v) => v != null ? v as String : null)(json['user_id']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final devices = this.devices;
     final userId = this.userId;
     return {
@@ -583,15 +809,16 @@ class WhoIsInfo {
   String? userId;
 }
 
+///
 @_NameSource('spec')
 class ChangePasswordCapability {
   ChangePasswordCapability({
     required this.enabled,
   });
 
-  ChangePasswordCapability.fromJson(Map<String, dynamic> json)
+  ChangePasswordCapability.fromJson(Map<String, Object?> json)
       : enabled = json['enabled'] as bool;
-  Map<String, dynamic> toJson() => {
+  Map<String, Object?> toJson() => {
         'enabled': enabled,
       };
 
@@ -609,6 +836,7 @@ enum RoomVersionAvailable {
   unstable
 }
 
+///
 @_NameSource('spec')
 class RoomVersionsCapability {
   RoomVersionsCapability({
@@ -616,11 +844,11 @@ class RoomVersionsCapability {
     required this.default$,
   });
 
-  RoomVersionsCapability.fromJson(Map<String, dynamic> json)
-      : available = (json['available'] as Map<String, dynamic>).map(
-            (k, v) => MapEntry(k, RoomVersionAvailable.values.fromString(v)!)),
+  RoomVersionsCapability.fromJson(Map<String, Object?> json)
+      : available = (json['available'] as Map<String, Object?>).map((k, v) =>
+            MapEntry(k, RoomVersionAvailable.values.fromString(v as String)!)),
         default$ = json['default'] as String;
-  Map<String, dynamic> toJson() => {
+  Map<String, Object?> toJson() => {
         'available': available.map((k, v) => MapEntry(k, v.name)),
         'default': default$,
       };
@@ -632,6 +860,7 @@ class RoomVersionsCapability {
   String default$;
 }
 
+///
 @_NameSource('spec')
 class Capabilities {
   Capabilities({
@@ -640,18 +869,18 @@ class Capabilities {
     this.additionalProperties = const {},
   });
 
-  Capabilities.fromJson(Map<String, dynamic> json)
+  Capabilities.fromJson(Map<String, Object?> json)
       : mChangePassword = ((v) => v != null
-            ? ChangePasswordCapability.fromJson(v)
+            ? ChangePasswordCapability.fromJson(v as Map<String, Object?>)
             : null)(json['m.change_password']),
         mRoomVersions = ((v) => v != null
-            ? RoomVersionsCapability.fromJson(v)
+            ? RoomVersionsCapability.fromJson(v as Map<String, Object?>)
             : null)(json['m.room_versions']),
         additionalProperties = Map.fromEntries(json.entries
             .where((e) =>
                 !['m.change_password', 'm.room_versions'].contains(e.key))
-            .map((e) => MapEntry(e.key, e.value as Map<String, dynamic>)));
-  Map<String, dynamic> toJson() {
+            .map((e) => MapEntry(e.key, e.value as Map<String, Object?>)));
+  Map<String, Object?> toJson() {
     final mChangePassword = this.mChangePassword;
     final mRoomVersions = this.mRoomVersions;
     return {
@@ -668,9 +897,10 @@ class Capabilities {
   /// The room versions the server supports.
   RoomVersionsCapability? mRoomVersions;
 
-  Map<String, Map<String, dynamic>> additionalProperties;
+  Map<String, Map<String, Object?>> additionalProperties;
 }
 
+///
 @_NameSource('spec')
 class StateEvent {
   StateEvent({
@@ -679,11 +909,11 @@ class StateEvent {
     required this.type,
   });
 
-  StateEvent.fromJson(Map<String, dynamic> json)
-      : content = json['content'] as Map<String, dynamic>,
+  StateEvent.fromJson(Map<String, Object?> json)
+      : content = json['content'] as Map<String, Object?>,
         stateKey = ((v) => v != null ? v as String : null)(json['state_key']),
         type = json['type'] as String;
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final stateKey = this.stateKey;
     return {
       'content': content,
@@ -693,7 +923,7 @@ class StateEvent {
   }
 
   /// The content of the event.
-  Map<String, dynamic> content;
+  Map<String, Object?> content;
 
   /// The state_key of the state event. Defaults to an empty string.
   String? stateKey;
@@ -702,6 +932,7 @@ class StateEvent {
   String type;
 }
 
+///
 @_NameSource('spec')
 class Invite3pid {
   Invite3pid({
@@ -711,12 +942,12 @@ class Invite3pid {
     required this.medium,
   });
 
-  Invite3pid.fromJson(Map<String, dynamic> json)
+  Invite3pid.fromJson(Map<String, Object?> json)
       : address = json['address'] as String,
         idAccessToken = json['id_access_token'] as String,
         idServer = json['id_server'] as String,
         medium = json['medium'] as String;
-  Map<String, dynamic> toJson() => {
+  Map<String, Object?> toJson() => {
         'address': address,
         'id_access_token': idAccessToken,
         'id_server': idServer,
@@ -734,10 +965,12 @@ class Invite3pid {
   /// The hostname+port of the identity server which should be used for third party identifier lookups.
   String idServer;
 
-  /// The kind of address being passed in the address field, for example `email`.
+  /// The kind of address being passed in the address field, for example `email`
+  /// (see [the list of recognised values](https://spec.matrix.org/unstable/appendices/#3pid-types)).
   String medium;
 }
 
+///
 @_NameSource('rule override generated')
 @EnhancedEnum()
 enum CreateRoomPreset {
@@ -749,6 +982,7 @@ enum CreateRoomPreset {
   trustedPrivateChat
 }
 
+///
 @_NameSource('generated')
 @EnhancedEnum()
 enum Visibility {
@@ -768,14 +1002,14 @@ class Device {
     this.lastSeenTs,
   });
 
-  Device.fromJson(Map<String, dynamic> json)
+  Device.fromJson(Map<String, Object?> json)
       : deviceId = json['device_id'] as String,
         displayName =
             ((v) => v != null ? v as String : null)(json['display_name']),
         lastSeenIp =
             ((v) => v != null ? v as String : null)(json['last_seen_ip']),
         lastSeenTs = ((v) => v != null ? v as int : null)(json['last_seen_ts']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final displayName = this.displayName;
     final lastSeenIp = this.lastSeenIp;
     final lastSeenTs = this.lastSeenTs;
@@ -804,6 +1038,7 @@ class Device {
   int? lastSeenTs;
 }
 
+///
 @_NameSource('generated')
 class GetRoomIdByAliasResponse {
   GetRoomIdByAliasResponse({
@@ -811,12 +1046,12 @@ class GetRoomIdByAliasResponse {
     this.servers,
   });
 
-  GetRoomIdByAliasResponse.fromJson(Map<String, dynamic> json)
+  GetRoomIdByAliasResponse.fromJson(Map<String, Object?> json)
       : roomId = ((v) => v != null ? v as String : null)(json['room_id']),
         servers = ((v) => v != null
             ? (v as List).map((v) => v as String).toList()
             : null)(json['servers']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final roomId = this.roomId;
     final servers = this.servers;
     return {
@@ -832,6 +1067,7 @@ class GetRoomIdByAliasResponse {
   List<String>? servers;
 }
 
+///
 @_NameSource('generated')
 class GetEventsResponse {
   GetEventsResponse({
@@ -840,13 +1076,15 @@ class GetEventsResponse {
     this.start,
   });
 
-  GetEventsResponse.fromJson(Map<String, dynamic> json)
+  GetEventsResponse.fromJson(Map<String, Object?> json)
       : chunk = ((v) => v != null
-            ? (v as List).map((v) => MatrixEvent.fromJson(v)).toList()
+            ? (v as List)
+                .map((v) => MatrixEvent.fromJson(v as Map<String, Object?>))
+                .toList()
             : null)(json['chunk']),
         end = ((v) => v != null ? v as String : null)(json['end']),
         start = ((v) => v != null ? v as String : null)(json['start']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final chunk = this.chunk;
     final end = this.end;
     final start = this.start;
@@ -869,6 +1107,7 @@ class GetEventsResponse {
   String? start;
 }
 
+///
 @_NameSource('generated')
 class PeekEventsResponse {
   PeekEventsResponse({
@@ -877,13 +1116,15 @@ class PeekEventsResponse {
     this.start,
   });
 
-  PeekEventsResponse.fromJson(Map<String, dynamic> json)
+  PeekEventsResponse.fromJson(Map<String, Object?> json)
       : chunk = ((v) => v != null
-            ? (v as List).map((v) => MatrixEvent.fromJson(v)).toList()
+            ? (v as List)
+                .map((v) => MatrixEvent.fromJson(v as Map<String, Object?>))
+                .toList()
             : null)(json['chunk']),
         end = ((v) => v != null ? v as String : null)(json['end']),
         start = ((v) => v != null ? v as String : null)(json['start']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final chunk = this.chunk;
     final end = this.end;
     final start = this.start;
@@ -917,16 +1158,16 @@ class ThirdPartySigned {
     required this.token,
   });
 
-  ThirdPartySigned.fromJson(Map<String, dynamic> json)
+  ThirdPartySigned.fromJson(Map<String, Object?> json)
       : mxid = json['mxid'] as String,
         sender = json['sender'] as String,
-        signatures = (json['signatures'] as Map<String, dynamic>).map((k, v) =>
+        signatures = (json['signatures'] as Map<String, Object?>).map((k, v) =>
             MapEntry(
                 k,
-                (v as Map<String, dynamic>)
+                (v as Map<String, Object?>)
                     .map((k, v) => MapEntry(k, v as String)))),
         token = json['token'] as String;
-  Map<String, dynamic> toJson() => {
+  Map<String, Object?> toJson() => {
         'mxid': mxid,
         'sender': sender,
         'signatures': signatures
@@ -947,6 +1188,7 @@ class ThirdPartySigned {
   String token;
 }
 
+///
 @_NameSource('generated')
 class GetKeysChangesResponse {
   GetKeysChangesResponse({
@@ -954,14 +1196,14 @@ class GetKeysChangesResponse {
     this.left,
   });
 
-  GetKeysChangesResponse.fromJson(Map<String, dynamic> json)
+  GetKeysChangesResponse.fromJson(Map<String, Object?> json)
       : changed = ((v) => v != null
             ? (v as List).map((v) => v as String).toList()
             : null)(json['changed']),
         left = ((v) => v != null
             ? (v as List).map((v) => v as String).toList()
             : null)(json['left']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final changed = this.changed;
     final left = this.left;
     return {
@@ -980,6 +1222,7 @@ class GetKeysChangesResponse {
   List<String>? left;
 }
 
+///
 @_NameSource('generated')
 class ClaimKeysResponse {
   ClaimKeysResponse({
@@ -987,17 +1230,17 @@ class ClaimKeysResponse {
     required this.oneTimeKeys,
   });
 
-  ClaimKeysResponse.fromJson(Map<String, dynamic> json)
+  ClaimKeysResponse.fromJson(Map<String, Object?> json)
       : failures = ((v) => v != null
-            ? (v as Map<String, dynamic>)
-                .map((k, v) => MapEntry(k, v as Map<String, dynamic>))
+            ? (v as Map<String, Object?>)
+                .map((k, v) => MapEntry(k, v as Map<String, Object?>))
             : null)(json['failures']),
-        oneTimeKeys = (json['one_time_keys'] as Map<String, dynamic>).map(
+        oneTimeKeys = (json['one_time_keys'] as Map<String, Object?>).map(
             (k, v) => MapEntry(
                 k,
-                (v as Map<String, dynamic>)
-                    .map((k, v) => MapEntry(k, v as dynamic))));
-  Map<String, dynamic> toJson() {
+                (v as Map<String, Object?>)
+                    .map((k, v) => MapEntry(k, v as Map<String, Object?>))));
+  Map<String, Object?> toJson() {
     final failures = this.failures;
     return {
       if (failures != null) 'failures': failures.map((k, v) => MapEntry(k, v)),
@@ -1013,7 +1256,7 @@ class ClaimKeysResponse {
   /// If the homeserver could be reached, but the user or device
   /// was unknown, no failure is recorded. Instead, the corresponding
   /// user or device is missing from the `one_time_keys` result.
-  Map<String, Map<String, dynamic>>? failures;
+  Map<String, Map<String, Object?>>? failures;
 
   /// One-time keys for the queried devices. A map from user ID, to a
   /// map from devices to a map from `<algorithm>:<key_id>` to the key object.
@@ -1023,9 +1266,10 @@ class ClaimKeysResponse {
   ///
   /// If necessary, the claimed key might be a fallback key. Fallback
   /// keys are re-used by the server until replaced by the device.
-  Map<String, Map<String, dynamic>> oneTimeKeys;
+  Map<String, Map<String, Map<String, Object?>>> oneTimeKeys;
 }
 
+///
 @_NameSource('generated')
 class QueryKeysResponse {
   QueryKeysResponse({
@@ -1036,30 +1280,30 @@ class QueryKeysResponse {
     this.userSigningKeys,
   });
 
-  QueryKeysResponse.fromJson(Map<String, dynamic> json)
+  QueryKeysResponse.fromJson(Map<String, Object?> json)
       : deviceKeys = ((v) => v != null
-            ? (v as Map<String, dynamic>).map((k, v) => MapEntry(
+            ? (v as Map<String, Object?>).map((k, v) => MapEntry(
                 k,
-                (v as Map<String, dynamic>)
-                    .map((k, v) => MapEntry(k, MatrixDeviceKeys.fromJson(v)))))
+                (v as Map<String, Object?>).map((k, v) => MapEntry(
+                    k, MatrixDeviceKeys.fromJson(v as Map<String, Object?>)))))
             : null)(json['device_keys']),
         failures = ((v) => v != null
-            ? (v as Map<String, dynamic>)
-                .map((k, v) => MapEntry(k, v as Map<String, dynamic>))
+            ? (v as Map<String, Object?>)
+                .map((k, v) => MapEntry(k, v as Map<String, Object?>))
             : null)(json['failures']),
         masterKeys = ((v) => v != null
-            ? (v as Map<String, dynamic>)
-                .map((k, v) => MapEntry(k, MatrixCrossSigningKey.fromJson(v)))
+            ? (v as Map<String, Object?>).map((k, v) => MapEntry(
+                k, MatrixCrossSigningKey.fromJson(v as Map<String, Object?>)))
             : null)(json['master_keys']),
         selfSigningKeys = ((v) => v != null
-            ? (v as Map<String, dynamic>)
-                .map((k, v) => MapEntry(k, MatrixCrossSigningKey.fromJson(v)))
+            ? (v as Map<String, Object?>).map((k, v) => MapEntry(
+                k, MatrixCrossSigningKey.fromJson(v as Map<String, Object?>)))
             : null)(json['self_signing_keys']),
         userSigningKeys = ((v) => v != null
-            ? (v as Map<String, dynamic>)
-                .map((k, v) => MapEntry(k, MatrixCrossSigningKey.fromJson(v)))
+            ? (v as Map<String, Object?>).map((k, v) => MapEntry(
+                k, MatrixCrossSigningKey.fromJson(v as Map<String, Object?>)))
             : null)(json['user_signing_keys']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final deviceKeys = this.deviceKeys;
     final failures = this.failures;
     final masterKeys = this.masterKeys;
@@ -1095,7 +1339,7 @@ class QueryKeysResponse {
   /// If the homeserver could be reached, but the user or device
   /// was unknown, no failure is recorded. Instead, the corresponding
   /// user or device is missing from the `device_keys` result.
-  Map<String, Map<String, dynamic>>? failures;
+  Map<String, Map<String, Object?>>? failures;
 
   /// Information on the master cross-signing keys of the queried users.
   /// A map from user ID, to master key information.  For each key, the
@@ -1119,15 +1363,16 @@ class QueryKeysResponse {
   Map<String, MatrixCrossSigningKey>? userSigningKeys;
 }
 
+///
 @_NameSource('spec')
 class LoginFlow {
   LoginFlow({
     this.type,
   });
 
-  LoginFlow.fromJson(Map<String, dynamic> json)
+  LoginFlow.fromJson(Map<String, Object?> json)
       : type = ((v) => v != null ? v as String : null)(json['type']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final type = this.type;
     return {
       if (type != null) 'type': type,
@@ -1139,6 +1384,7 @@ class LoginFlow {
   String? type;
 }
 
+///
 @_NameSource('rule override generated')
 @EnhancedEnum()
 enum LoginType {
@@ -1150,48 +1396,63 @@ enum LoginType {
   mLoginJWT
 }
 
+///
 @_NameSource('generated')
 class LoginResponse {
   LoginResponse({
-    this.accessToken,
-    this.deviceId,
+    required this.accessToken,
+    required this.deviceId,
+    this.expiresInMs,
     this.homeServer,
-    this.userId,
+    this.refreshToken,
+    required this.userId,
     this.wellKnown,
   });
 
-  LoginResponse.fromJson(Map<String, dynamic> json)
-      : accessToken =
-            ((v) => v != null ? v as String : null)(json['access_token']),
-        deviceId = ((v) => v != null ? v as String : null)(json['device_id']),
+  LoginResponse.fromJson(Map<String, Object?> json)
+      : accessToken = json['access_token'] as String,
+        deviceId = json['device_id'] as String,
+        expiresInMs =
+            ((v) => v != null ? v as int : null)(json['expires_in_ms']),
         homeServer =
             ((v) => v != null ? v as String : null)(json['home_server']),
-        userId = ((v) => v != null ? v as String : null)(json['user_id']),
+        refreshToken =
+            ((v) => v != null ? v as String : null)(json['refresh_token']),
+        userId = json['user_id'] as String,
         wellKnown = ((v) => v != null
-            ? DiscoveryInformation.fromJson(v)
+            ? DiscoveryInformation.fromJson(v as Map<String, Object?>)
             : null)(json['well_known']);
-  Map<String, dynamic> toJson() {
-    final accessToken = this.accessToken;
-    final deviceId = this.deviceId;
+  Map<String, Object?> toJson() {
+    final expiresInMs = this.expiresInMs;
     final homeServer = this.homeServer;
-    final userId = this.userId;
+    final refreshToken = this.refreshToken;
     final wellKnown = this.wellKnown;
     return {
-      if (accessToken != null) 'access_token': accessToken,
-      if (deviceId != null) 'device_id': deviceId,
+      'access_token': accessToken,
+      'device_id': deviceId,
+      if (expiresInMs != null) 'expires_in_ms': expiresInMs,
       if (homeServer != null) 'home_server': homeServer,
-      if (userId != null) 'user_id': userId,
+      if (refreshToken != null) 'refresh_token': refreshToken,
+      'user_id': userId,
       if (wellKnown != null) 'well_known': wellKnown.toJson(),
     };
   }
 
   /// An access token for the account.
   /// This access token can then be used to authorize other requests.
-  String? accessToken;
+  String accessToken;
 
   /// ID of the logged-in device. Will be the same as the
   /// corresponding parameter in the request, if one was specified.
-  String? deviceId;
+  String deviceId;
+
+  /// The lifetime of the access token, in milliseconds. Once
+  /// the access token has expired a new access token can be
+  /// obtained by using the provided refresh token. If no
+  /// refresh token is provided, the client will need to re-log in
+  /// to obtain a new access token. If not given, the client can
+  /// assume that the access token will not expire.
+  int? expiresInMs;
 
   /// The server_name of the homeserver on which the account has
   /// been registered.
@@ -1201,8 +1462,13 @@ class LoginResponse {
   /// it. Note also that `homeserver` is not spelt this way.
   String? homeServer;
 
+  /// A refresh token for the account. This token can be used to
+  /// obtain a new access token when it expires by calling the
+  /// `/refresh` endpoint.
+  String? refreshToken;
+
   /// The fully-qualified Matrix ID for the account.
-  String? userId;
+  String userId;
 
   /// Optional client configuration provided by the server. If present,
   /// clients SHOULD use the provided object to reconfigure themselves,
@@ -1211,6 +1477,7 @@ class LoginResponse {
   DiscoveryInformation? wellKnown;
 }
 
+///
 @_NameSource('spec')
 class Notification {
   Notification({
@@ -1222,15 +1489,15 @@ class Notification {
     required this.ts,
   });
 
-  Notification.fromJson(Map<String, dynamic> json)
-      : actions = (json['actions'] as List).map((v) => v as dynamic).toList(),
-        event = MatrixEvent.fromJson(json['event']),
+  Notification.fromJson(Map<String, Object?> json)
+      : actions = (json['actions'] as List).map((v) => v as Object?).toList(),
+        event = MatrixEvent.fromJson(json['event'] as Map<String, Object?>),
         profileTag =
             ((v) => v != null ? v as String : null)(json['profile_tag']),
         read = json['read'] as bool,
         roomId = json['room_id'] as String,
         ts = json['ts'] as int;
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final profileTag = this.profileTag;
     return {
       'actions': actions.map((v) => v).toList(),
@@ -1244,7 +1511,7 @@ class Notification {
 
   /// The action(s) to perform when the conditions for this rule are met.
   /// See [Push Rules: API](https://spec.matrix.org/unstable/client-server-api/#push-rules-api).
-  List<dynamic> actions;
+  List<Object?> actions;
 
   /// The Event object for the event that triggered the notification.
   MatrixEvent event;
@@ -1264,6 +1531,7 @@ class Notification {
   int ts;
 }
 
+///
 @_NameSource('generated')
 class GetNotificationsResponse {
   GetNotificationsResponse({
@@ -1271,12 +1539,12 @@ class GetNotificationsResponse {
     required this.notifications,
   });
 
-  GetNotificationsResponse.fromJson(Map<String, dynamic> json)
+  GetNotificationsResponse.fromJson(Map<String, Object?> json)
       : nextToken = ((v) => v != null ? v as String : null)(json['next_token']),
         notifications = (json['notifications'] as List)
-            .map((v) => Notification.fromJson(v))
+            .map((v) => Notification.fromJson(v as Map<String, Object?>))
             .toList();
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final nextToken = this.nextToken;
     return {
       if (nextToken != null) 'next_token': nextToken,
@@ -1293,6 +1561,7 @@ class GetNotificationsResponse {
   List<Notification> notifications;
 }
 
+///
 @_NameSource('rule override generated')
 @EnhancedEnum()
 enum PresenceType {
@@ -1304,6 +1573,7 @@ enum PresenceType {
   unavailable
 }
 
+///
 @_NameSource('generated')
 class GetPresenceResponse {
   GetPresenceResponse({
@@ -1313,14 +1583,14 @@ class GetPresenceResponse {
     this.statusMsg,
   });
 
-  GetPresenceResponse.fromJson(Map<String, dynamic> json)
+  GetPresenceResponse.fromJson(Map<String, Object?> json)
       : currentlyActive =
             ((v) => v != null ? v as bool : null)(json['currently_active']),
         lastActiveAgo =
             ((v) => v != null ? v as int : null)(json['last_active_ago']),
-        presence = PresenceType.values.fromString(json['presence'])!,
+        presence = PresenceType.values.fromString(json['presence'] as String)!,
         statusMsg = ((v) => v != null ? v as String : null)(json['status_msg']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final currentlyActive = this.currentlyActive;
     final lastActiveAgo = this.lastActiveAgo;
     final statusMsg = this.statusMsg;
@@ -1346,6 +1616,7 @@ class GetPresenceResponse {
   String? statusMsg;
 }
 
+///
 @_NameSource('rule override generated')
 class ProfileInformation {
   ProfileInformation({
@@ -1353,12 +1624,12 @@ class ProfileInformation {
     this.displayname,
   });
 
-  ProfileInformation.fromJson(Map<String, dynamic> json)
-      : avatarUrl =
-            ((v) => v != null ? Uri.parse(v) : null)(json['avatar_url']),
+  ProfileInformation.fromJson(Map<String, Object?> json)
+      : avatarUrl = ((v) =>
+            v != null ? Uri.parse(v as String) : null)(json['avatar_url']),
         displayname =
             ((v) => v != null ? v as String : null)(json['displayname']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final avatarUrl = this.avatarUrl;
     final displayname = this.displayname;
     return {
@@ -1384,15 +1655,15 @@ class GetPublicRoomsResponse {
     this.totalRoomCountEstimate,
   });
 
-  GetPublicRoomsResponse.fromJson(Map<String, dynamic> json)
+  GetPublicRoomsResponse.fromJson(Map<String, Object?> json)
       : chunk = (json['chunk'] as List)
-            .map((v) => PublicRoomsChunk.fromJson(v))
+            .map((v) => PublicRoomsChunk.fromJson(v as Map<String, Object?>))
             .toList(),
         nextBatch = ((v) => v != null ? v as String : null)(json['next_batch']),
         prevBatch = ((v) => v != null ? v as String : null)(json['prev_batch']),
         totalRoomCountEstimate = ((v) =>
             v != null ? v as int : null)(json['total_room_count_estimate']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final nextBatch = this.nextBatch;
     final prevBatch = this.prevBatch;
     final totalRoomCountEstimate = this.totalRoomCountEstimate;
@@ -1423,25 +1694,38 @@ class GetPublicRoomsResponse {
   int? totalRoomCountEstimate;
 }
 
+///
 @_NameSource('rule override spec')
 class PublicRoomQueryFilter {
   PublicRoomQueryFilter({
     this.genericSearchTerm,
+    this.roomTypes,
   });
 
-  PublicRoomQueryFilter.fromJson(Map<String, dynamic> json)
+  PublicRoomQueryFilter.fromJson(Map<String, Object?> json)
       : genericSearchTerm = ((v) =>
-            v != null ? v as String : null)(json['generic_search_term']);
-  Map<String, dynamic> toJson() {
+            v != null ? v as String : null)(json['generic_search_term']),
+        roomTypes = ((v) => v != null
+            ? (v as List).map((v) => v as String).toList()
+            : null)(json['room_types']);
+  Map<String, Object?> toJson() {
     final genericSearchTerm = this.genericSearchTerm;
+    final roomTypes = this.roomTypes;
     return {
       if (genericSearchTerm != null) 'generic_search_term': genericSearchTerm,
+      if (roomTypes != null) 'room_types': roomTypes.map((v) => v).toList(),
     };
   }
 
-  /// A string to search for in the room metadata, e.g. name,
-  /// topic, canonical alias etc. (Optional).
+  /// An optional string to search for in the room metadata, e.g. name,
+  /// topic, canonical alias, etc.
   String? genericSearchTerm;
+
+  /// An optional list of [room types](https://spec.matrix.org/unstable/client-server-api/#types) to search
+  /// for. To include rooms without a room type, specify `null` within this
+  /// list. When not specified, all applicable rooms (regardless of type)
+  /// are returned.
+  List<String>? roomTypes;
 }
 
 /// A list of the rooms on the server.
@@ -1454,15 +1738,15 @@ class QueryPublicRoomsResponse {
     this.totalRoomCountEstimate,
   });
 
-  QueryPublicRoomsResponse.fromJson(Map<String, dynamic> json)
+  QueryPublicRoomsResponse.fromJson(Map<String, Object?> json)
       : chunk = (json['chunk'] as List)
-            .map((v) => PublicRoomsChunk.fromJson(v))
+            .map((v) => PublicRoomsChunk.fromJson(v as Map<String, Object?>))
             .toList(),
         nextBatch = ((v) => v != null ? v as String : null)(json['next_batch']),
         prevBatch = ((v) => v != null ? v as String : null)(json['prev_batch']),
         totalRoomCountEstimate = ((v) =>
             v != null ? v as int : null)(json['total_room_count_estimate']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final nextBatch = this.nextBatch;
     final prevBatch = this.prevBatch;
     final totalRoomCountEstimate = this.totalRoomCountEstimate;
@@ -1493,6 +1777,7 @@ class QueryPublicRoomsResponse {
   int? totalRoomCountEstimate;
 }
 
+///
 @_NameSource('spec')
 class PusherData {
   PusherData({
@@ -1501,13 +1786,13 @@ class PusherData {
     this.additionalProperties = const {},
   });
 
-  PusherData.fromJson(Map<String, dynamic> json)
+  PusherData.fromJson(Map<String, Object?> json)
       : format = ((v) => v != null ? v as String : null)(json['format']),
-        url = ((v) => v != null ? Uri.parse(v) : null)(json['url']),
+        url = ((v) => v != null ? Uri.parse(v as String) : null)(json['url']),
         additionalProperties = Map.fromEntries(json.entries
             .where((e) => !['format', 'url'].contains(e.key))
-            .map((e) => MapEntry(e.key, e.value as dynamic)));
-  Map<String, dynamic> toJson() {
+            .map((e) => MapEntry(e.key, e.value as Object?)));
+  Map<String, Object?> toJson() {
     final format = this.format;
     final url = this.url;
     return {
@@ -1525,9 +1810,10 @@ class PusherData {
   /// notifications to.
   Uri? url;
 
-  Map<String, dynamic> additionalProperties;
+  Map<String, Object?> additionalProperties;
 }
 
+///
 @_NameSource('spec')
 class PusherId {
   PusherId({
@@ -1535,10 +1821,10 @@ class PusherId {
     required this.pushkey,
   });
 
-  PusherId.fromJson(Map<String, dynamic> json)
+  PusherId.fromJson(Map<String, Object?> json)
       : appId = json['app_id'] as String,
         pushkey = json['pushkey'] as String;
-  Map<String, dynamic> toJson() => {
+  Map<String, Object?> toJson() => {
         'app_id': appId,
         'pushkey': pushkey,
       };
@@ -1553,6 +1839,7 @@ class PusherId {
   String pushkey;
 }
 
+///
 @_NameSource('spec')
 class Pusher implements PusherId {
   Pusher({
@@ -1566,17 +1853,17 @@ class Pusher implements PusherId {
     this.profileTag,
   });
 
-  Pusher.fromJson(Map<String, dynamic> json)
+  Pusher.fromJson(Map<String, Object?> json)
       : appId = json['app_id'] as String,
         pushkey = json['pushkey'] as String,
         appDisplayName = json['app_display_name'] as String,
-        data = PusherData.fromJson(json['data']),
+        data = PusherData.fromJson(json['data'] as Map<String, Object?>),
         deviceDisplayName = json['device_display_name'] as String,
         kind = json['kind'] as String,
         lang = json['lang'] as String,
         profileTag =
             ((v) => v != null ? v as String : null)(json['profile_tag']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final profileTag = this.profileTag;
     return {
       'app_id': appId,
@@ -1624,6 +1911,7 @@ class Pusher implements PusherId {
   String? profileTag;
 }
 
+///
 @_NameSource('spec')
 class PushCondition {
   PushCondition({
@@ -1633,12 +1921,12 @@ class PushCondition {
     this.pattern,
   });
 
-  PushCondition.fromJson(Map<String, dynamic> json)
+  PushCondition.fromJson(Map<String, Object?> json)
       : is$ = ((v) => v != null ? v as String : null)(json['is']),
         key = ((v) => v != null ? v as String : null)(json['key']),
         kind = json['kind'] as String,
         pattern = ((v) => v != null ? v as String : null)(json['pattern']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final is$ = this.is$;
     final key = this.key;
     final pattern = this.pattern;
@@ -1674,6 +1962,7 @@ class PushCondition {
   String? pattern;
 }
 
+///
 @_NameSource('spec')
 class PushRule {
   PushRule({
@@ -1685,16 +1974,18 @@ class PushRule {
     required this.ruleId,
   });
 
-  PushRule.fromJson(Map<String, dynamic> json)
-      : actions = (json['actions'] as List).map((v) => v as dynamic).toList(),
+  PushRule.fromJson(Map<String, Object?> json)
+      : actions = (json['actions'] as List).map((v) => v as Object?).toList(),
         conditions = ((v) => v != null
-            ? (v as List).map((v) => PushCondition.fromJson(v)).toList()
+            ? (v as List)
+                .map((v) => PushCondition.fromJson(v as Map<String, Object?>))
+                .toList()
             : null)(json['conditions']),
         default$ = json['default'] as bool,
         enabled = json['enabled'] as bool,
         pattern = ((v) => v != null ? v as String : null)(json['pattern']),
         ruleId = json['rule_id'] as String;
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final conditions = this.conditions;
     final pattern = this.pattern;
     return {
@@ -1709,7 +2000,7 @@ class PushRule {
   }
 
   /// The actions to perform when this rule is matched.
-  List<dynamic> actions;
+  List<Object?> actions;
 
   /// The conditions that must hold true for an event in order for a rule to be
   /// applied to an event. A rule with no conditions always matches. Only
@@ -1730,6 +2021,7 @@ class PushRule {
   String ruleId;
 }
 
+///
 @_NameSource('rule override generated')
 class PushRuleSet {
   PushRuleSet({
@@ -1740,23 +2032,33 @@ class PushRuleSet {
     this.underride,
   });
 
-  PushRuleSet.fromJson(Map<String, dynamic> json)
+  PushRuleSet.fromJson(Map<String, Object?> json)
       : content = ((v) => v != null
-            ? (v as List).map((v) => PushRule.fromJson(v)).toList()
+            ? (v as List)
+                .map((v) => PushRule.fromJson(v as Map<String, Object?>))
+                .toList()
             : null)(json['content']),
         override = ((v) => v != null
-            ? (v as List).map((v) => PushRule.fromJson(v)).toList()
+            ? (v as List)
+                .map((v) => PushRule.fromJson(v as Map<String, Object?>))
+                .toList()
             : null)(json['override']),
         room = ((v) => v != null
-            ? (v as List).map((v) => PushRule.fromJson(v)).toList()
+            ? (v as List)
+                .map((v) => PushRule.fromJson(v as Map<String, Object?>))
+                .toList()
             : null)(json['room']),
         sender = ((v) => v != null
-            ? (v as List).map((v) => PushRule.fromJson(v)).toList()
+            ? (v as List)
+                .map((v) => PushRule.fromJson(v as Map<String, Object?>))
+                .toList()
             : null)(json['sender']),
         underride = ((v) => v != null
-            ? (v as List).map((v) => PushRule.fromJson(v)).toList()
+            ? (v as List)
+                .map((v) => PushRule.fromJson(v as Map<String, Object?>))
+                .toList()
             : null)(json['underride']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final content = this.content;
     final override = this.override;
     final room = this.room;
@@ -1773,17 +2075,23 @@ class PushRuleSet {
     };
   }
 
+  ///
   List<PushRule>? content;
 
+  ///
   List<PushRule>? override;
 
+  ///
   List<PushRule>? room;
 
+  ///
   List<PushRule>? sender;
 
+  ///
   List<PushRule>? underride;
 }
 
+///
 @_NameSource('rule override generated')
 @EnhancedEnum()
 enum PushRuleKind {
@@ -1799,6 +2107,46 @@ enum PushRuleKind {
   underride
 }
 
+///
+@_NameSource('generated')
+class RefreshResponse {
+  RefreshResponse({
+    required this.accessToken,
+    this.expiresInMs,
+    this.refreshToken,
+  });
+
+  RefreshResponse.fromJson(Map<String, Object?> json)
+      : accessToken = json['access_token'] as String,
+        expiresInMs =
+            ((v) => v != null ? v as int : null)(json['expires_in_ms']),
+        refreshToken =
+            ((v) => v != null ? v as String : null)(json['refresh_token']);
+  Map<String, Object?> toJson() {
+    final expiresInMs = this.expiresInMs;
+    final refreshToken = this.refreshToken;
+    return {
+      'access_token': accessToken,
+      if (expiresInMs != null) 'expires_in_ms': expiresInMs,
+      if (refreshToken != null) 'refresh_token': refreshToken,
+    };
+  }
+
+  /// The new access token to use.
+  String accessToken;
+
+  /// The lifetime of the access token, in milliseconds. If not
+  /// given, the client can assume that the access token will not
+  /// expire.
+  int? expiresInMs;
+
+  /// The new refresh token to use when the access token needs to
+  /// be refreshed again. If not given, the old refresh token can
+  /// be re-used.
+  String? refreshToken;
+}
+
+///
 @_NameSource('rule override generated')
 @EnhancedEnum()
 enum AccountKind {
@@ -1808,30 +2156,41 @@ enum AccountKind {
   user
 }
 
+///
 @_NameSource('generated')
 class RegisterResponse {
   RegisterResponse({
     this.accessToken,
     this.deviceId,
+    this.expiresInMs,
     this.homeServer,
+    this.refreshToken,
     required this.userId,
   });
 
-  RegisterResponse.fromJson(Map<String, dynamic> json)
+  RegisterResponse.fromJson(Map<String, Object?> json)
       : accessToken =
             ((v) => v != null ? v as String : null)(json['access_token']),
         deviceId = ((v) => v != null ? v as String : null)(json['device_id']),
+        expiresInMs =
+            ((v) => v != null ? v as int : null)(json['expires_in_ms']),
         homeServer =
             ((v) => v != null ? v as String : null)(json['home_server']),
+        refreshToken =
+            ((v) => v != null ? v as String : null)(json['refresh_token']),
         userId = json['user_id'] as String;
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final accessToken = this.accessToken;
     final deviceId = this.deviceId;
+    final expiresInMs = this.expiresInMs;
     final homeServer = this.homeServer;
+    final refreshToken = this.refreshToken;
     return {
       if (accessToken != null) 'access_token': accessToken,
       if (deviceId != null) 'device_id': deviceId,
+      if (expiresInMs != null) 'expires_in_ms': expiresInMs,
       if (homeServer != null) 'home_server': homeServer,
+      if (refreshToken != null) 'refresh_token': refreshToken,
       'user_id': userId,
     };
   }
@@ -1846,6 +2205,16 @@ class RegisterResponse {
   /// Required if the `inhibit_login` option is false.
   String? deviceId;
 
+  /// The lifetime of the access token, in milliseconds. Once
+  /// the access token has expired a new access token can be
+  /// obtained by using the provided refresh token. If no
+  /// refresh token is provided, the client will need to re-log in
+  /// to obtain a new access token. If not given, the client can
+  /// assume that the access token will not expire.
+  ///
+  /// Omitted if the `inhibit_login` option is true.
+  int? expiresInMs;
+
   /// The server_name of the homeserver on which the account has
   /// been registered.
   ///
@@ -1854,6 +2223,13 @@ class RegisterResponse {
   /// it. Note also that `homeserver` is not spelt this way.
   String? homeServer;
 
+  /// A refresh token for the account. This token can be used to
+  /// obtain a new access token when it expires by calling the
+  /// `/refresh` endpoint.
+  ///
+  /// Omitted if the `inhibit_login` option is true.
+  String? refreshToken;
+
   /// The fully-qualified Matrix user ID (MXID) that has been registered.
   ///
   /// Any user ID returned by this API must conform to the grammar given in the
@@ -1861,6 +2237,7 @@ class RegisterResponse {
   String userId;
 }
 
+///
 @_NameSource('spec')
 class RoomKeysUpdateResponse {
   RoomKeysUpdateResponse({
@@ -1868,10 +2245,10 @@ class RoomKeysUpdateResponse {
     required this.etag,
   });
 
-  RoomKeysUpdateResponse.fromJson(Map<String, dynamic> json)
+  RoomKeysUpdateResponse.fromJson(Map<String, Object?> json)
       : count = json['count'] as int,
         etag = json['etag'] as String;
-  Map<String, dynamic> toJson() => {
+  Map<String, Object?> toJson() => {
         'count': count,
         'etag': etag,
       };
@@ -1894,12 +2271,12 @@ class KeyBackupData {
     required this.sessionData,
   });
 
-  KeyBackupData.fromJson(Map<String, dynamic> json)
+  KeyBackupData.fromJson(Map<String, Object?> json)
       : firstMessageIndex = json['first_message_index'] as int,
         forwardedCount = json['forwarded_count'] as int,
         isVerified = json['is_verified'] as bool,
-        sessionData = json['session_data'] as Map<String, dynamic>;
-  Map<String, dynamic> toJson() => {
+        sessionData = json['session_data'] as Map<String, Object?>;
+  Map<String, Object?> toJson() => {
         'first_message_index': firstMessageIndex,
         'forwarded_count': forwardedCount,
         'is_verified': isVerified,
@@ -1919,7 +2296,7 @@ class KeyBackupData {
   /// Algorithm-dependent data.  See the documentation for the backup
   /// algorithms in [Server-side key backups](https://spec.matrix.org/unstable/client-server-api/#server-side-key-backups) for more information on the
   /// expected format of the data.
-  Map<String, dynamic> sessionData;
+  Map<String, Object?> sessionData;
 }
 
 /// The backed up keys for a room.
@@ -1929,10 +2306,10 @@ class RoomKeyBackup {
     required this.sessions,
   });
 
-  RoomKeyBackup.fromJson(Map<String, dynamic> json)
-      : sessions = (json['sessions'] as Map<String, dynamic>)
-            .map((k, v) => MapEntry(k, KeyBackupData.fromJson(v)));
-  Map<String, dynamic> toJson() => {
+  RoomKeyBackup.fromJson(Map<String, Object?> json)
+      : sessions = (json['sessions'] as Map<String, Object?>).map((k, v) =>
+            MapEntry(k, KeyBackupData.fromJson(v as Map<String, Object?>)));
+  Map<String, Object?> toJson() => {
         'sessions': sessions.map((k, v) => MapEntry(k, v.toJson())),
       };
 
@@ -1940,16 +2317,17 @@ class RoomKeyBackup {
   Map<String, KeyBackupData> sessions;
 }
 
+///
 @_NameSource('rule override generated')
 class RoomKeys {
   RoomKeys({
     required this.rooms,
   });
 
-  RoomKeys.fromJson(Map<String, dynamic> json)
-      : rooms = (json['rooms'] as Map<String, dynamic>)
-            .map((k, v) => MapEntry(k, RoomKeyBackup.fromJson(v)));
-  Map<String, dynamic> toJson() => {
+  RoomKeys.fromJson(Map<String, Object?> json)
+      : rooms = (json['rooms'] as Map<String, Object?>).map((k, v) =>
+            MapEntry(k, RoomKeyBackup.fromJson(v as Map<String, Object?>)));
+  Map<String, Object?> toJson() => {
         'rooms': rooms.map((k, v) => MapEntry(k, v.toJson())),
       };
 
@@ -1957,6 +2335,7 @@ class RoomKeys {
   Map<String, RoomKeyBackup> rooms;
 }
 
+///
 @_NameSource('rule override generated')
 @EnhancedEnum()
 enum BackupAlgorithm {
@@ -1964,6 +2343,7 @@ enum BackupAlgorithm {
   mMegolmBackupV1Curve25519AesSha2
 }
 
+///
 @_NameSource('generated')
 class GetRoomKeysVersionCurrentResponse {
   GetRoomKeysVersionCurrentResponse({
@@ -1974,13 +2354,14 @@ class GetRoomKeysVersionCurrentResponse {
     required this.version,
   });
 
-  GetRoomKeysVersionCurrentResponse.fromJson(Map<String, dynamic> json)
-      : algorithm = BackupAlgorithm.values.fromString(json['algorithm'])!,
-        authData = json['auth_data'] as Map<String, dynamic>,
+  GetRoomKeysVersionCurrentResponse.fromJson(Map<String, Object?> json)
+      : algorithm =
+            BackupAlgorithm.values.fromString(json['algorithm'] as String)!,
+        authData = json['auth_data'] as Map<String, Object?>,
         count = json['count'] as int,
         etag = json['etag'] as String,
         version = json['version'] as String;
-  Map<String, dynamic> toJson() => {
+  Map<String, Object?> toJson() => {
         'algorithm': algorithm.name,
         'auth_data': authData,
         'count': count,
@@ -1994,7 +2375,7 @@ class GetRoomKeysVersionCurrentResponse {
   /// Algorithm-dependent data. See the documentation for the backup
   /// algorithms in [Server-side key backups](https://spec.matrix.org/unstable/client-server-api/#server-side-key-backups) for more information on the
   /// expected format of the data.
-  Map<String, dynamic> authData;
+  Map<String, Object?> authData;
 
   /// The number of keys stored in the backup.
   int count;
@@ -2009,6 +2390,7 @@ class GetRoomKeysVersionCurrentResponse {
   String version;
 }
 
+///
 @_NameSource('generated')
 class GetRoomKeysVersionResponse {
   GetRoomKeysVersionResponse({
@@ -2019,13 +2401,14 @@ class GetRoomKeysVersionResponse {
     required this.version,
   });
 
-  GetRoomKeysVersionResponse.fromJson(Map<String, dynamic> json)
-      : algorithm = BackupAlgorithm.values.fromString(json['algorithm'])!,
-        authData = json['auth_data'] as Map<String, dynamic>,
+  GetRoomKeysVersionResponse.fromJson(Map<String, Object?> json)
+      : algorithm =
+            BackupAlgorithm.values.fromString(json['algorithm'] as String)!,
+        authData = json['auth_data'] as Map<String, Object?>,
         count = json['count'] as int,
         etag = json['etag'] as String,
         version = json['version'] as String;
-  Map<String, dynamic> toJson() => {
+  Map<String, Object?> toJson() => {
         'algorithm': algorithm.name,
         'auth_data': authData,
         'count': count,
@@ -2039,7 +2422,7 @@ class GetRoomKeysVersionResponse {
   /// Algorithm-dependent data. See the documentation for the backup
   /// algorithms in [Server-side key backups](https://spec.matrix.org/unstable/client-server-api/#server-side-key-backups) for more information on the
   /// expected format of the data.
-  Map<String, dynamic> authData;
+  Map<String, Object?> authData;
 
   /// The number of keys stored in the backup.
   int count;
@@ -2066,21 +2449,28 @@ class EventContext {
     this.state,
   });
 
-  EventContext.fromJson(Map<String, dynamic> json)
+  EventContext.fromJson(Map<String, Object?> json)
       : end = ((v) => v != null ? v as String : null)(json['end']),
-        event =
-            ((v) => v != null ? MatrixEvent.fromJson(v) : null)(json['event']),
+        event = ((v) => v != null
+            ? MatrixEvent.fromJson(v as Map<String, Object?>)
+            : null)(json['event']),
         eventsAfter = ((v) => v != null
-            ? (v as List).map((v) => MatrixEvent.fromJson(v)).toList()
+            ? (v as List)
+                .map((v) => MatrixEvent.fromJson(v as Map<String, Object?>))
+                .toList()
             : null)(json['events_after']),
         eventsBefore = ((v) => v != null
-            ? (v as List).map((v) => MatrixEvent.fromJson(v)).toList()
+            ? (v as List)
+                .map((v) => MatrixEvent.fromJson(v as Map<String, Object?>))
+                .toList()
             : null)(json['events_before']),
         start = ((v) => v != null ? v as String : null)(json['start']),
         state = ((v) => v != null
-            ? (v as List).map((v) => MatrixEvent.fromJson(v)).toList()
+            ? (v as List)
+                .map((v) => MatrixEvent.fromJson(v as Map<String, Object?>))
+                .toList()
             : null)(json['state']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final end = this.end;
     final event = this.event;
     final eventsAfter = this.eventsAfter;
@@ -2120,6 +2510,7 @@ class EventContext {
   List<MatrixEvent>? state;
 }
 
+///
 @_NameSource('spec')
 class RoomMember {
   RoomMember({
@@ -2127,12 +2518,12 @@ class RoomMember {
     this.displayName,
   });
 
-  RoomMember.fromJson(Map<String, dynamic> json)
-      : avatarUrl =
-            ((v) => v != null ? Uri.parse(v) : null)(json['avatar_url']),
+  RoomMember.fromJson(Map<String, Object?> json)
+      : avatarUrl = ((v) =>
+            v != null ? Uri.parse(v as String) : null)(json['avatar_url']),
         displayName =
             ((v) => v != null ? v as String : null)(json['display_name']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final avatarUrl = this.avatarUrl;
     final displayName = this.displayName;
     return {
@@ -2148,6 +2539,7 @@ class RoomMember {
   String? displayName;
 }
 
+///
 @_NameSource('(generated, rule override generated)')
 @EnhancedEnum()
 enum Membership {
@@ -2163,15 +2555,6 @@ enum Membership {
   leave
 }
 
-@_NameSource('rule override generated')
-@EnhancedEnum()
-enum Direction {
-  @EnhancedEnumValue(name: 'b')
-  b,
-  @EnhancedEnumValue(name: 'f')
-  f
-}
-
 /// A list of messages with a new token to request more.
 @_NameSource('generated')
 class GetRoomEventsResponse {
@@ -2182,16 +2565,18 @@ class GetRoomEventsResponse {
     this.state,
   });
 
-  GetRoomEventsResponse.fromJson(Map<String, dynamic> json)
+  GetRoomEventsResponse.fromJson(Map<String, Object?> json)
       : chunk = (json['chunk'] as List)
-            .map((v) => MatrixEvent.fromJson(v))
+            .map((v) => MatrixEvent.fromJson(v as Map<String, Object?>))
             .toList(),
         end = ((v) => v != null ? v as String : null)(json['end']),
         start = json['start'] as String,
         state = ((v) => v != null
-            ? (v as List).map((v) => MatrixEvent.fromJson(v)).toList()
+            ? (v as List)
+                .map((v) => MatrixEvent.fromJson(v as Map<String, Object?>))
+                .toList()
             : null)(json['state']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final end = this.end;
     final state = this.state;
     return {
@@ -2236,13 +2621,19 @@ class GetRoomEventsResponse {
   List<MatrixEvent>? state;
 }
 
+///
 @_NameSource('generated')
 @EnhancedEnum()
 enum ReceiptType {
+  @EnhancedEnumValue(name: 'm.fully_read')
+  mFullyRead,
   @EnhancedEnumValue(name: 'm.read')
-  mRead
+  mRead,
+  @EnhancedEnumValue(name: 'm.read.private')
+  mReadPrivate
 }
 
+///
 @_NameSource('spec')
 class IncludeEventContext {
   IncludeEventContext({
@@ -2251,13 +2642,13 @@ class IncludeEventContext {
     this.includeProfile,
   });
 
-  IncludeEventContext.fromJson(Map<String, dynamic> json)
+  IncludeEventContext.fromJson(Map<String, Object?> json)
       : afterLimit = ((v) => v != null ? v as int : null)(json['after_limit']),
         beforeLimit =
             ((v) => v != null ? v as int : null)(json['before_limit']),
         includeProfile =
             ((v) => v != null ? v as bool : null)(json['include_profile']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final afterLimit = this.afterLimit;
     final beforeLimit = this.beforeLimit;
     final includeProfile = this.includeProfile;
@@ -2283,6 +2674,7 @@ class IncludeEventContext {
   bool? includeProfile;
 }
 
+///
 @_NameSource('spec')
 class EventFilter {
   EventFilter({
@@ -2293,7 +2685,7 @@ class EventFilter {
     this.types,
   });
 
-  EventFilter.fromJson(Map<String, dynamic> json)
+  EventFilter.fromJson(Map<String, Object?> json)
       : limit = ((v) => v != null ? v as int : null)(json['limit']),
         notSenders = ((v) => v != null
             ? (v as List).map((v) => v as String).toList()
@@ -2307,7 +2699,7 @@ class EventFilter {
         types = ((v) => v != null
             ? (v as List).map((v) => v as String).toList()
             : null)(json['types']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final limit = this.limit;
     final notSenders = this.notSenders;
     final notTypes = this.notTypes;
@@ -2338,6 +2730,7 @@ class EventFilter {
   List<String>? types;
 }
 
+///
 @_NameSource('spec')
 class RoomEventFilter {
   RoomEventFilter({
@@ -2346,9 +2739,10 @@ class RoomEventFilter {
     this.lazyLoadMembers,
     this.notRooms,
     this.rooms,
+    this.unreadThreadNotifications,
   });
 
-  RoomEventFilter.fromJson(Map<String, dynamic> json)
+  RoomEventFilter.fromJson(Map<String, Object?> json)
       : containsUrl =
             ((v) => v != null ? v as bool : null)(json['contains_url']),
         includeRedundantMembers = ((v) =>
@@ -2360,13 +2754,16 @@ class RoomEventFilter {
             : null)(json['not_rooms']),
         rooms = ((v) => v != null
             ? (v as List).map((v) => v as String).toList()
-            : null)(json['rooms']);
-  Map<String, dynamic> toJson() {
+            : null)(json['rooms']),
+        unreadThreadNotifications = ((v) =>
+            v != null ? v as bool : null)(json['unread_thread_notifications']);
+  Map<String, Object?> toJson() {
     final containsUrl = this.containsUrl;
     final includeRedundantMembers = this.includeRedundantMembers;
     final lazyLoadMembers = this.lazyLoadMembers;
     final notRooms = this.notRooms;
     final rooms = this.rooms;
+    final unreadThreadNotifications = this.unreadThreadNotifications;
     return {
       if (containsUrl != null) 'contains_url': containsUrl,
       if (includeRedundantMembers != null)
@@ -2374,6 +2771,8 @@ class RoomEventFilter {
       if (lazyLoadMembers != null) 'lazy_load_members': lazyLoadMembers,
       if (notRooms != null) 'not_rooms': notRooms.map((v) => v).toList(),
       if (rooms != null) 'rooms': rooms.map((v) => v).toList(),
+      if (unreadThreadNotifications != null)
+        'unread_thread_notifications': unreadThreadNotifications,
     };
   }
 
@@ -2397,8 +2796,13 @@ class RoomEventFilter {
 
   /// A list of room IDs to include. If this list is absent then all rooms are included.
   List<String>? rooms;
+
+  /// If `true`, enables per-[thread](https://spec.matrix.org/unstable/client-server-api/#threading) notification
+  /// counts. Only applies to the `/sync` endpoint. Defaults to `false`.
+  bool? unreadThreadNotifications;
 }
 
+///
 @_NameSource('rule override generated')
 class SearchFilter implements EventFilter, RoomEventFilter {
   SearchFilter({
@@ -2412,9 +2816,10 @@ class SearchFilter implements EventFilter, RoomEventFilter {
     this.lazyLoadMembers,
     this.notRooms,
     this.rooms,
+    this.unreadThreadNotifications,
   });
 
-  SearchFilter.fromJson(Map<String, dynamic> json)
+  SearchFilter.fromJson(Map<String, Object?> json)
       : limit = ((v) => v != null ? v as int : null)(json['limit']),
         notSenders = ((v) => v != null
             ? (v as List).map((v) => v as String).toList()
@@ -2439,8 +2844,10 @@ class SearchFilter implements EventFilter, RoomEventFilter {
             : null)(json['not_rooms']),
         rooms = ((v) => v != null
             ? (v as List).map((v) => v as String).toList()
-            : null)(json['rooms']);
-  Map<String, dynamic> toJson() {
+            : null)(json['rooms']),
+        unreadThreadNotifications = ((v) =>
+            v != null ? v as bool : null)(json['unread_thread_notifications']);
+  Map<String, Object?> toJson() {
     final limit = this.limit;
     final notSenders = this.notSenders;
     final notTypes = this.notTypes;
@@ -2451,6 +2858,7 @@ class SearchFilter implements EventFilter, RoomEventFilter {
     final lazyLoadMembers = this.lazyLoadMembers;
     final notRooms = this.notRooms;
     final rooms = this.rooms;
+    final unreadThreadNotifications = this.unreadThreadNotifications;
     return {
       if (limit != null) 'limit': limit,
       if (notSenders != null) 'not_senders': notSenders.map((v) => v).toList(),
@@ -2463,6 +2871,8 @@ class SearchFilter implements EventFilter, RoomEventFilter {
       if (lazyLoadMembers != null) 'lazy_load_members': lazyLoadMembers,
       if (notRooms != null) 'not_rooms': notRooms.map((v) => v).toList(),
       if (rooms != null) 'rooms': rooms.map((v) => v).toList(),
+      if (unreadThreadNotifications != null)
+        'unread_thread_notifications': unreadThreadNotifications,
     };
   }
 
@@ -2501,8 +2911,13 @@ class SearchFilter implements EventFilter, RoomEventFilter {
 
   /// A list of room IDs to include. If this list is absent then all rooms are included.
   List<String>? rooms;
+
+  /// If `true`, enables per-[thread](https://spec.matrix.org/unstable/client-server-api/#threading) notification
+  /// counts. Only applies to the `/sync` endpoint. Defaults to `false`.
+  bool? unreadThreadNotifications;
 }
 
+///
 @_NameSource('rule override generated')
 @EnhancedEnum()
 enum GroupKey {
@@ -2519,10 +2934,11 @@ class Group {
     this.key,
   });
 
-  Group.fromJson(Map<String, dynamic> json)
-      : key = ((v) =>
-            v != null ? GroupKey.values.fromString(v)! : null)(json['key']);
-  Map<String, dynamic> toJson() {
+  Group.fromJson(Map<String, Object?> json)
+      : key = ((v) => v != null
+            ? GroupKey.values.fromString(v as String)!
+            : null)(json['key']);
+  Map<String, Object?> toJson() {
     final key = this.key;
     return {
       if (key != null) 'key': key.name,
@@ -2533,17 +2949,20 @@ class Group {
   GroupKey? key;
 }
 
+///
 @_NameSource('spec')
 class Groupings {
   Groupings({
     this.groupBy,
   });
 
-  Groupings.fromJson(Map<String, dynamic> json)
+  Groupings.fromJson(Map<String, Object?> json)
       : groupBy = ((v) => v != null
-            ? (v as List).map((v) => Group.fromJson(v)).toList()
+            ? (v as List)
+                .map((v) => Group.fromJson(v as Map<String, Object?>))
+                .toList()
             : null)(json['group_by']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final groupBy = this.groupBy;
     return {
       if (groupBy != null) 'group_by': groupBy.map((v) => v.toJson()).toList(),
@@ -2554,6 +2973,7 @@ class Groupings {
   List<Group>? groupBy;
 }
 
+///
 @_NameSource('rule override generated')
 @EnhancedEnum()
 enum KeyKind {
@@ -2565,6 +2985,7 @@ enum KeyKind {
   contentTopic
 }
 
+///
 @_NameSource('rule override generated')
 @EnhancedEnum()
 enum SearchOrder {
@@ -2574,6 +2995,7 @@ enum SearchOrder {
   recent
 }
 
+///
 @_NameSource('spec')
 class RoomEventsCriteria {
   RoomEventsCriteria({
@@ -2586,23 +3008,28 @@ class RoomEventsCriteria {
     required this.searchTerm,
   });
 
-  RoomEventsCriteria.fromJson(Map<String, dynamic> json)
+  RoomEventsCriteria.fromJson(Map<String, Object?> json)
       : eventContext = ((v) => v != null
-            ? IncludeEventContext.fromJson(v)
+            ? IncludeEventContext.fromJson(v as Map<String, Object?>)
             : null)(json['event_context']),
-        filter = ((v) =>
-            v != null ? SearchFilter.fromJson(v) : null)(json['filter']),
-        groupings = ((v) =>
-            v != null ? Groupings.fromJson(v) : null)(json['groupings']),
+        filter = ((v) => v != null
+            ? SearchFilter.fromJson(v as Map<String, Object?>)
+            : null)(json['filter']),
+        groupings = ((v) => v != null
+            ? Groupings.fromJson(v as Map<String, Object?>)
+            : null)(json['groupings']),
         includeState =
             ((v) => v != null ? v as bool : null)(json['include_state']),
         keys = ((v) => v != null
-            ? (v as List).map((v) => KeyKind.values.fromString(v)!).toList()
+            ? (v as List)
+                .map((v) => KeyKind.values.fromString(v as String)!)
+                .toList()
             : null)(json['keys']),
-        orderBy = ((v) => v != null ? SearchOrder.values.fromString(v)! : null)(
-            json['order_by']),
+        orderBy = ((v) => v != null
+            ? SearchOrder.values.fromString(v as String)!
+            : null)(json['order_by']),
         searchTerm = json['search_term'] as String;
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final eventContext = this.eventContext;
     final filter = this.filter;
     final groupings = this.groupings;
@@ -2646,16 +3073,18 @@ class RoomEventsCriteria {
   String searchTerm;
 }
 
+///
 @_NameSource('spec')
 class Categories {
   Categories({
     this.roomEvents,
   });
 
-  Categories.fromJson(Map<String, dynamic> json)
-      : roomEvents = ((v) => v != null ? RoomEventsCriteria.fromJson(v) : null)(
-            json['room_events']);
-  Map<String, dynamic> toJson() {
+  Categories.fromJson(Map<String, Object?> json)
+      : roomEvents = ((v) => v != null
+            ? RoomEventsCriteria.fromJson(v as Map<String, Object?>)
+            : null)(json['room_events']);
+  Map<String, Object?> toJson() {
     final roomEvents = this.roomEvents;
     return {
       if (roomEvents != null) 'room_events': roomEvents.toJson(),
@@ -2675,13 +3104,13 @@ class GroupValue {
     this.results,
   });
 
-  GroupValue.fromJson(Map<String, dynamic> json)
+  GroupValue.fromJson(Map<String, Object?> json)
       : nextBatch = ((v) => v != null ? v as String : null)(json['next_batch']),
         order = ((v) => v != null ? v as int : null)(json['order']),
         results = ((v) => v != null
             ? (v as List).map((v) => v as String).toList()
             : null)(json['results']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final nextBatch = this.nextBatch;
     final order = this.order;
     final results = this.results;
@@ -2707,6 +3136,7 @@ class GroupValue {
   List<String>? results;
 }
 
+///
 @_NameSource('spec')
 class UserProfile {
   UserProfile({
@@ -2714,12 +3144,12 @@ class UserProfile {
     this.displayname,
   });
 
-  UserProfile.fromJson(Map<String, dynamic> json)
-      : avatarUrl =
-            ((v) => v != null ? Uri.parse(v) : null)(json['avatar_url']),
+  UserProfile.fromJson(Map<String, Object?> json)
+      : avatarUrl = ((v) =>
+            v != null ? Uri.parse(v as String) : null)(json['avatar_url']),
         displayname =
             ((v) => v != null ? v as String : null)(json['displayname']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final avatarUrl = this.avatarUrl;
     final displayname = this.displayname;
     return {
@@ -2728,11 +3158,14 @@ class UserProfile {
     };
   }
 
+  ///
   Uri? avatarUrl;
 
+  ///
   String? displayname;
 }
 
+///
 @_NameSource('rule override spec')
 class SearchResultsEventContext {
   SearchResultsEventContext({
@@ -2743,20 +3176,24 @@ class SearchResultsEventContext {
     this.start,
   });
 
-  SearchResultsEventContext.fromJson(Map<String, dynamic> json)
+  SearchResultsEventContext.fromJson(Map<String, Object?> json)
       : end = ((v) => v != null ? v as String : null)(json['end']),
         eventsAfter = ((v) => v != null
-            ? (v as List).map((v) => MatrixEvent.fromJson(v)).toList()
+            ? (v as List)
+                .map((v) => MatrixEvent.fromJson(v as Map<String, Object?>))
+                .toList()
             : null)(json['events_after']),
         eventsBefore = ((v) => v != null
-            ? (v as List).map((v) => MatrixEvent.fromJson(v)).toList()
+            ? (v as List)
+                .map((v) => MatrixEvent.fromJson(v as Map<String, Object?>))
+                .toList()
             : null)(json['events_before']),
         profileInfo = ((v) => v != null
-            ? (v as Map<String, dynamic>)
-                .map((k, v) => MapEntry(k, UserProfile.fromJson(v)))
+            ? (v as Map<String, Object?>).map((k, v) =>
+                MapEntry(k, UserProfile.fromJson(v as Map<String, Object?>)))
             : null)(json['profile_info']),
         start = ((v) => v != null ? v as String : null)(json['start']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final end = this.end;
     final eventsAfter = this.eventsAfter;
     final eventsBefore = this.eventsBefore;
@@ -2803,14 +3240,15 @@ class Result {
     this.result,
   });
 
-  Result.fromJson(Map<String, dynamic> json)
+  Result.fromJson(Map<String, Object?> json)
       : context = ((v) => v != null
-            ? SearchResultsEventContext.fromJson(v)
+            ? SearchResultsEventContext.fromJson(v as Map<String, Object?>)
             : null)(json['context']),
         rank = ((v) => v != null ? (v as num).toDouble() : null)(json['rank']),
-        result =
-            ((v) => v != null ? MatrixEvent.fromJson(v) : null)(json['result']);
-  Map<String, dynamic> toJson() {
+        result = ((v) => v != null
+            ? MatrixEvent.fromJson(v as Map<String, Object?>)
+            : null)(json['result']);
+  Map<String, Object?> toJson() {
     final context = this.context;
     final rank = this.rank;
     final result = this.result;
@@ -2831,6 +3269,7 @@ class Result {
   MatrixEvent? result;
 }
 
+///
 @_NameSource('spec')
 class ResultRoomEvents {
   ResultRoomEvents({
@@ -2842,26 +3281,31 @@ class ResultRoomEvents {
     this.state,
   });
 
-  ResultRoomEvents.fromJson(Map<String, dynamic> json)
+  ResultRoomEvents.fromJson(Map<String, Object?> json)
       : count = ((v) => v != null ? v as int : null)(json['count']),
         groups = ((v) => v != null
-            ? (v as Map<String, dynamic>).map((k, v) => MapEntry(
+            ? (v as Map<String, Object?>).map((k, v) => MapEntry(
                 k,
-                (v as Map<String, dynamic>)
-                    .map((k, v) => MapEntry(k, GroupValue.fromJson(v)))))
+                (v as Map<String, Object?>).map((k, v) => MapEntry(
+                    k, GroupValue.fromJson(v as Map<String, Object?>)))))
             : null)(json['groups']),
         highlights = ((v) => v != null
             ? (v as List).map((v) => v as String).toList()
             : null)(json['highlights']),
         nextBatch = ((v) => v != null ? v as String : null)(json['next_batch']),
         results = ((v) => v != null
-            ? (v as List).map((v) => Result.fromJson(v)).toList()
+            ? (v as List)
+                .map((v) => Result.fromJson(v as Map<String, Object?>))
+                .toList()
             : null)(json['results']),
         state = ((v) => v != null
-            ? (v as Map<String, dynamic>).map((k, v) => MapEntry(
-                k, (v as List).map((v) => MatrixEvent.fromJson(v)).toList()))
+            ? (v as Map<String, Object?>).map((k, v) => MapEntry(
+                k,
+                (v as List)
+                    .map((v) => MatrixEvent.fromJson(v as Map<String, Object?>))
+                    .toList()))
             : null)(json['state']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final count = this.count;
     final groups = this.groups;
     final highlights = this.highlights;
@@ -2913,16 +3357,18 @@ class ResultRoomEvents {
   Map<String, List<MatrixEvent>>? state;
 }
 
+///
 @_NameSource('spec')
 class ResultCategories {
   ResultCategories({
     this.roomEvents,
   });
 
-  ResultCategories.fromJson(Map<String, dynamic> json)
-      : roomEvents = ((v) => v != null ? ResultRoomEvents.fromJson(v) : null)(
-            json['room_events']);
-  Map<String, dynamic> toJson() {
+  ResultCategories.fromJson(Map<String, Object?> json)
+      : roomEvents = ((v) => v != null
+            ? ResultRoomEvents.fromJson(v as Map<String, Object?>)
+            : null)(json['room_events']);
+  Map<String, Object?> toJson() {
     final roomEvents = this.roomEvents;
     return {
       if (roomEvents != null) 'room_events': roomEvents.toJson(),
@@ -2933,15 +3379,17 @@ class ResultCategories {
   ResultRoomEvents? roomEvents;
 }
 
+///
 @_NameSource('rule override spec')
 class SearchResults {
   SearchResults({
     required this.searchCategories,
   });
 
-  SearchResults.fromJson(Map<String, dynamic> json)
-      : searchCategories = ResultCategories.fromJson(json['search_categories']);
-  Map<String, dynamic> toJson() => {
+  SearchResults.fromJson(Map<String, Object?> json)
+      : searchCategories = ResultCategories.fromJson(
+            json['search_categories'] as Map<String, Object?>);
+  Map<String, Object?> toJson() => {
         'search_categories': searchCategories.toJson(),
       };
 
@@ -2949,6 +3397,7 @@ class SearchResults {
   ResultCategories searchCategories;
 }
 
+///
 @_NameSource('spec')
 class Location {
   Location({
@@ -2957,11 +3406,11 @@ class Location {
     required this.protocol,
   });
 
-  Location.fromJson(Map<String, dynamic> json)
+  Location.fromJson(Map<String, Object?> json)
       : alias = json['alias'] as String,
-        fields = json['fields'] as Map<String, dynamic>,
+        fields = json['fields'] as Map<String, Object?>,
         protocol = json['protocol'] as String;
-  Map<String, dynamic> toJson() => {
+  Map<String, Object?> toJson() => {
         'alias': alias,
         'fields': fields,
         'protocol': protocol,
@@ -2971,7 +3420,7 @@ class Location {
   String alias;
 
   /// Information used to identify this third party location.
-  Map<String, dynamic> fields;
+  Map<String, Object?> fields;
 
   /// The protocol ID that the third party location is a part of.
   String protocol;
@@ -2985,10 +3434,10 @@ class FieldType {
     required this.regexp,
   });
 
-  FieldType.fromJson(Map<String, dynamic> json)
+  FieldType.fromJson(Map<String, Object?> json)
       : placeholder = json['placeholder'] as String,
         regexp = json['regexp'] as String;
-  Map<String, dynamic> toJson() => {
+  Map<String, Object?> toJson() => {
         'placeholder': placeholder,
         'regexp': regexp,
       };
@@ -3002,6 +3451,7 @@ class FieldType {
   String regexp;
 }
 
+///
 @_NameSource('spec')
 class ProtocolInstance {
   ProtocolInstance({
@@ -3011,12 +3461,12 @@ class ProtocolInstance {
     required this.networkId,
   });
 
-  ProtocolInstance.fromJson(Map<String, dynamic> json)
+  ProtocolInstance.fromJson(Map<String, Object?> json)
       : desc = json['desc'] as String,
-        fields = json['fields'] as Map<String, dynamic>,
+        fields = json['fields'] as Map<String, Object?>,
         icon = ((v) => v != null ? v as String : null)(json['icon']),
         networkId = json['network_id'] as String;
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final icon = this.icon;
     return {
       'desc': desc,
@@ -3030,7 +3480,7 @@ class ProtocolInstance {
   String desc;
 
   /// Preset values for `fields` the client may use to search by.
-  Map<String, dynamic> fields;
+  Map<String, Object?> fields;
 
   /// An optional content URI representing the protocol. Overrides the one provided
   /// at the higher level Protocol object.
@@ -3040,6 +3490,7 @@ class ProtocolInstance {
   String networkId;
 }
 
+///
 @_NameSource('spec')
 class Protocol {
   Protocol({
@@ -3050,18 +3501,18 @@ class Protocol {
     required this.userFields,
   });
 
-  Protocol.fromJson(Map<String, dynamic> json)
-      : fieldTypes = (json['field_types'] as Map<String, dynamic>)
-            .map((k, v) => MapEntry(k, FieldType.fromJson(v))),
+  Protocol.fromJson(Map<String, Object?> json)
+      : fieldTypes = (json['field_types'] as Map<String, Object?>).map((k, v) =>
+            MapEntry(k, FieldType.fromJson(v as Map<String, Object?>))),
         icon = json['icon'] as String,
         instances = (json['instances'] as List)
-            .map((v) => ProtocolInstance.fromJson(v))
+            .map((v) => ProtocolInstance.fromJson(v as Map<String, Object?>))
             .toList(),
         locationFields =
             (json['location_fields'] as List).map((v) => v as String).toList(),
         userFields =
             (json['user_fields'] as List).map((v) => v as String).toList();
-  Map<String, dynamic> toJson() => {
+  Map<String, Object?> toJson() => {
         'field_types': fieldTypes.map((k, v) => MapEntry(k, v.toJson())),
         'icon': icon,
         'instances': instances.map((v) => v.toJson()).toList(),
@@ -3097,6 +3548,7 @@ class Protocol {
   List<String> userFields;
 }
 
+///
 @_NameSource('rule override spec')
 class ThirdPartyUser {
   ThirdPartyUser({
@@ -3105,18 +3557,18 @@ class ThirdPartyUser {
     required this.userid,
   });
 
-  ThirdPartyUser.fromJson(Map<String, dynamic> json)
-      : fields = json['fields'] as Map<String, dynamic>,
+  ThirdPartyUser.fromJson(Map<String, Object?> json)
+      : fields = json['fields'] as Map<String, Object?>,
         protocol = json['protocol'] as String,
         userid = json['userid'] as String;
-  Map<String, dynamic> toJson() => {
+  Map<String, Object?> toJson() => {
         'fields': fields,
         'protocol': protocol,
         'userid': userid,
       };
 
   /// Information used to identify this third party location.
-  Map<String, dynamic> fields;
+  Map<String, Object?> fields;
 
   /// The protocol ID that the third party location is a part of.
   String protocol;
@@ -3125,6 +3577,7 @@ class ThirdPartyUser {
   String userid;
 }
 
+///
 @_NameSource('generated')
 @EnhancedEnum()
 enum EventFormat {
@@ -3134,6 +3587,7 @@ enum EventFormat {
   federation
 }
 
+///
 @_NameSource('rule override generated')
 class StateFilter implements EventFilter, RoomEventFilter {
   StateFilter({
@@ -3147,9 +3601,10 @@ class StateFilter implements EventFilter, RoomEventFilter {
     this.lazyLoadMembers,
     this.notRooms,
     this.rooms,
+    this.unreadThreadNotifications,
   });
 
-  StateFilter.fromJson(Map<String, dynamic> json)
+  StateFilter.fromJson(Map<String, Object?> json)
       : limit = ((v) => v != null ? v as int : null)(json['limit']),
         notSenders = ((v) => v != null
             ? (v as List).map((v) => v as String).toList()
@@ -3174,8 +3629,10 @@ class StateFilter implements EventFilter, RoomEventFilter {
             : null)(json['not_rooms']),
         rooms = ((v) => v != null
             ? (v as List).map((v) => v as String).toList()
-            : null)(json['rooms']);
-  Map<String, dynamic> toJson() {
+            : null)(json['rooms']),
+        unreadThreadNotifications = ((v) =>
+            v != null ? v as bool : null)(json['unread_thread_notifications']);
+  Map<String, Object?> toJson() {
     final limit = this.limit;
     final notSenders = this.notSenders;
     final notTypes = this.notTypes;
@@ -3186,6 +3643,7 @@ class StateFilter implements EventFilter, RoomEventFilter {
     final lazyLoadMembers = this.lazyLoadMembers;
     final notRooms = this.notRooms;
     final rooms = this.rooms;
+    final unreadThreadNotifications = this.unreadThreadNotifications;
     return {
       if (limit != null) 'limit': limit,
       if (notSenders != null) 'not_senders': notSenders.map((v) => v).toList(),
@@ -3198,6 +3656,8 @@ class StateFilter implements EventFilter, RoomEventFilter {
       if (lazyLoadMembers != null) 'lazy_load_members': lazyLoadMembers,
       if (notRooms != null) 'not_rooms': notRooms.map((v) => v).toList(),
       if (rooms != null) 'rooms': rooms.map((v) => v).toList(),
+      if (unreadThreadNotifications != null)
+        'unread_thread_notifications': unreadThreadNotifications,
     };
   }
 
@@ -3236,8 +3696,13 @@ class StateFilter implements EventFilter, RoomEventFilter {
 
   /// A list of room IDs to include. If this list is absent then all rooms are included.
   List<String>? rooms;
+
+  /// If `true`, enables per-[thread](https://spec.matrix.org/unstable/client-server-api/#threading) notification
+  /// counts. Only applies to the `/sync` endpoint. Defaults to `false`.
+  bool? unreadThreadNotifications;
 }
 
+///
 @_NameSource('spec')
 class RoomFilter {
   RoomFilter({
@@ -3250,11 +3715,13 @@ class RoomFilter {
     this.timeline,
   });
 
-  RoomFilter.fromJson(Map<String, dynamic> json)
-      : accountData = ((v) =>
-            v != null ? StateFilter.fromJson(v) : null)(json['account_data']),
-        ephemeral = ((v) =>
-            v != null ? StateFilter.fromJson(v) : null)(json['ephemeral']),
+  RoomFilter.fromJson(Map<String, Object?> json)
+      : accountData = ((v) => v != null
+            ? StateFilter.fromJson(v as Map<String, Object?>)
+            : null)(json['account_data']),
+        ephemeral = ((v) => v != null
+            ? StateFilter.fromJson(v as Map<String, Object?>)
+            : null)(json['ephemeral']),
         includeLeave =
             ((v) => v != null ? v as bool : null)(json['include_leave']),
         notRooms = ((v) => v != null
@@ -3263,11 +3730,13 @@ class RoomFilter {
         rooms = ((v) => v != null
             ? (v as List).map((v) => v as String).toList()
             : null)(json['rooms']),
-        state =
-            ((v) => v != null ? StateFilter.fromJson(v) : null)(json['state']),
-        timeline = ((v) =>
-            v != null ? StateFilter.fromJson(v) : null)(json['timeline']);
-  Map<String, dynamic> toJson() {
+        state = ((v) => v != null
+            ? StateFilter.fromJson(v as Map<String, Object?>)
+            : null)(json['state']),
+        timeline = ((v) => v != null
+            ? StateFilter.fromJson(v as Map<String, Object?>)
+            : null)(json['timeline']);
+  Map<String, Object?> toJson() {
     final accountData = this.accountData;
     final ephemeral = this.ephemeral;
     final includeLeave = this.includeLeave;
@@ -3289,7 +3758,7 @@ class RoomFilter {
   /// The per user account data to include for rooms.
   StateFilter? accountData;
 
-  /// The events that aren't recorded in the room history, e.g. typing and receipts, to include for rooms.
+  /// The ephemeral events to include for rooms. These are the events that appear in the `ephemeral` property in the `/sync` response.
   StateFilter? ephemeral;
 
   /// Include rooms that the user has left in the sync, default false
@@ -3308,6 +3777,7 @@ class RoomFilter {
   StateFilter? timeline;
 }
 
+///
 @_NameSource('spec')
 class Filter {
   Filter({
@@ -3318,19 +3788,23 @@ class Filter {
     this.room,
   });
 
-  Filter.fromJson(Map<String, dynamic> json)
-      : accountData = ((v) =>
-            v != null ? EventFilter.fromJson(v) : null)(json['account_data']),
+  Filter.fromJson(Map<String, Object?> json)
+      : accountData = ((v) => v != null
+            ? EventFilter.fromJson(v as Map<String, Object?>)
+            : null)(json['account_data']),
         eventFields = ((v) => v != null
             ? (v as List).map((v) => v as String).toList()
             : null)(json['event_fields']),
         eventFormat = ((v) => v != null
-            ? EventFormat.values.fromString(v)!
+            ? EventFormat.values.fromString(v as String)!
             : null)(json['event_format']),
-        presence = ((v) =>
-            v != null ? EventFilter.fromJson(v) : null)(json['presence']),
-        room = ((v) => v != null ? RoomFilter.fromJson(v) : null)(json['room']);
-  Map<String, dynamic> toJson() {
+        presence = ((v) => v != null
+            ? EventFilter.fromJson(v as Map<String, Object?>)
+            : null)(json['presence']),
+        room = ((v) => v != null
+            ? RoomFilter.fromJson(v as Map<String, Object?>)
+            : null)(json['room']);
+  Map<String, Object?> toJson() {
     final accountData = this.accountData;
     final eventFields = this.eventFields;
     final eventFormat = this.eventFormat;
@@ -3362,6 +3836,7 @@ class Filter {
   RoomFilter? room;
 }
 
+///
 @_NameSource('spec')
 class OpenIdCredentials {
   OpenIdCredentials({
@@ -3371,12 +3846,12 @@ class OpenIdCredentials {
     required this.tokenType,
   });
 
-  OpenIdCredentials.fromJson(Map<String, dynamic> json)
+  OpenIdCredentials.fromJson(Map<String, Object?> json)
       : accessToken = json['access_token'] as String,
         expiresIn = json['expires_in'] as int,
         matrixServerName = json['matrix_server_name'] as String,
         tokenType = json['token_type'] as String;
-  Map<String, dynamic> toJson() => {
+  Map<String, Object?> toJson() => {
         'access_token': accessToken,
         'expires_in': expiresIn,
         'matrix_server_name': matrixServerName,
@@ -3400,6 +3875,7 @@ class OpenIdCredentials {
   String tokenType;
 }
 
+///
 @_NameSource('spec')
 class Tag {
   Tag({
@@ -3407,13 +3883,13 @@ class Tag {
     this.additionalProperties = const {},
   });
 
-  Tag.fromJson(Map<String, dynamic> json)
+  Tag.fromJson(Map<String, Object?> json)
       : order =
             ((v) => v != null ? (v as num).toDouble() : null)(json['order']),
         additionalProperties = Map.fromEntries(json.entries
             .where((e) => !['order'].contains(e.key))
-            .map((e) => MapEntry(e.key, e.value as dynamic)));
-  Map<String, dynamic> toJson() {
+            .map((e) => MapEntry(e.key, e.value as Object?)));
+  Map<String, Object?> toJson() {
     final order = this.order;
     return {
       ...additionalProperties,
@@ -3425,9 +3901,10 @@ class Tag {
   /// position of the room under the given tag.
   double? order;
 
-  Map<String, dynamic> additionalProperties;
+  Map<String, Object?> additionalProperties;
 }
 
+///
 @_NameSource('rule override spec')
 class Profile {
   Profile({
@@ -3436,13 +3913,13 @@ class Profile {
     required this.userId,
   });
 
-  Profile.fromJson(Map<String, dynamic> json)
-      : avatarUrl =
-            ((v) => v != null ? Uri.parse(v) : null)(json['avatar_url']),
+  Profile.fromJson(Map<String, Object?> json)
+      : avatarUrl = ((v) =>
+            v != null ? Uri.parse(v as String) : null)(json['avatar_url']),
         displayName =
             ((v) => v != null ? v as String : null)(json['display_name']),
         userId = json['user_id'] as String;
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final avatarUrl = this.avatarUrl;
     final displayName = this.displayName;
     return {
@@ -3462,6 +3939,7 @@ class Profile {
   String userId;
 }
 
+///
 @_NameSource('generated')
 class SearchUserDirectoryResponse {
   SearchUserDirectoryResponse({
@@ -3469,11 +3947,12 @@ class SearchUserDirectoryResponse {
     required this.results,
   });
 
-  SearchUserDirectoryResponse.fromJson(Map<String, dynamic> json)
+  SearchUserDirectoryResponse.fromJson(Map<String, Object?> json)
       : limited = json['limited'] as bool,
-        results =
-            (json['results'] as List).map((v) => Profile.fromJson(v)).toList();
-  Map<String, dynamic> toJson() => {
+        results = (json['results'] as List)
+            .map((v) => Profile.fromJson(v as Map<String, Object?>))
+            .toList();
+  Map<String, Object?> toJson() => {
         'limited': limited,
         'results': results.map((v) => v.toJson()).toList(),
       };
@@ -3485,6 +3964,7 @@ class SearchUserDirectoryResponse {
   List<Profile> results;
 }
 
+///
 @_NameSource('rule override generated')
 class TurnServerCredentials {
   TurnServerCredentials({
@@ -3494,12 +3974,12 @@ class TurnServerCredentials {
     required this.username,
   });
 
-  TurnServerCredentials.fromJson(Map<String, dynamic> json)
+  TurnServerCredentials.fromJson(Map<String, Object?> json)
       : password = json['password'] as String,
         ttl = json['ttl'] as int,
         uris = (json['uris'] as List).map((v) => v as String).toList(),
         username = json['username'] as String;
-  Map<String, dynamic> toJson() => {
+  Map<String, Object?> toJson() => {
         'password': password,
         'ttl': ttl,
         'uris': uris.map((v) => v).toList(),
@@ -3519,6 +3999,7 @@ class TurnServerCredentials {
   String username;
 }
 
+///
 @_NameSource('generated')
 class GetVersionsResponse {
   GetVersionsResponse({
@@ -3526,12 +4007,12 @@ class GetVersionsResponse {
     required this.versions,
   });
 
-  GetVersionsResponse.fromJson(Map<String, dynamic> json)
+  GetVersionsResponse.fromJson(Map<String, Object?> json)
       : unstableFeatures = ((v) => v != null
-            ? (v as Map<String, dynamic>).map((k, v) => MapEntry(k, v as bool))
+            ? (v as Map<String, Object?>).map((k, v) => MapEntry(k, v as bool))
             : null)(json['unstable_features']),
         versions = (json['versions'] as List).map((v) => v as String).toList();
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final unstableFeatures = this.unstableFeatures;
     return {
       if (unstableFeatures != null)
@@ -3549,16 +4030,17 @@ class GetVersionsResponse {
   List<String> versions;
 }
 
+///
 @_NameSource('rule override generated')
 class ServerConfig {
   ServerConfig({
     this.mUploadSize,
   });
 
-  ServerConfig.fromJson(Map<String, dynamic> json)
+  ServerConfig.fromJson(Map<String, Object?> json)
       : mUploadSize =
             ((v) => v != null ? v as int : null)(json['m.upload.size']);
-  Map<String, dynamic> toJson() {
+  Map<String, Object?> toJson() {
     final mUploadSize = this.mUploadSize;
     return {
       if (mUploadSize != null) 'm.upload.size': mUploadSize,
@@ -3571,6 +4053,7 @@ class ServerConfig {
   int? mUploadSize;
 }
 
+///
 @_NameSource('generated')
 class GetUrlPreviewResponse {
   GetUrlPreviewResponse({
@@ -3578,11 +4061,12 @@ class GetUrlPreviewResponse {
     this.ogImage,
   });
 
-  GetUrlPreviewResponse.fromJson(Map<String, dynamic> json)
+  GetUrlPreviewResponse.fromJson(Map<String, Object?> json)
       : matrixImageSize =
             ((v) => v != null ? v as int : null)(json['matrix:image:size']),
-        ogImage = ((v) => v != null ? Uri.parse(v) : null)(json['og:image']);
-  Map<String, dynamic> toJson() {
+        ogImage = ((v) =>
+            v != null ? Uri.parse(v as String) : null)(json['og:image']);
+  Map<String, Object?> toJson() {
     final matrixImageSize = this.matrixImageSize;
     final ogImage = this.ogImage;
     return {
@@ -3598,6 +4082,7 @@ class GetUrlPreviewResponse {
   Uri? ogImage;
 }
 
+///
 @_NameSource('generated')
 @EnhancedEnum()
 enum Method {

@@ -24,6 +24,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+
 import 'package:matrix_api_lite/matrix_api_lite.dart';
 
 enum MatrixError {
@@ -62,7 +63,7 @@ enum MatrixError {
 
 /// Represents a special response from the Homeserver for errors.
 class MatrixException implements Exception {
-  final Map<String, dynamic> raw;
+  final Map<String, Object?> raw;
 
   /// The unique identifier for this error.
   String get errcode =>
@@ -80,17 +81,18 @@ class MatrixException implements Exception {
   http.Response? response;
 
   MatrixException(http.Response this.response)
-      : raw = json.decode(response.body) as Map<String, dynamic>;
+      : raw = json.decode(response.body) as Map<String, Object?>;
 
-  MatrixException.fromJson(Map<String, dynamic> content) : raw = content;
+  MatrixException.fromJson(Map<String, Object?> content) : raw = content;
 
   @override
   String toString() => '$errcode: $errorMessage';
 
-  /// Returns the [ResponseError]. Is ResponseError.NONE if there wasn't an error.
+  /// Returns the errcode as an [MatrixError].
   MatrixError get error => MatrixError.values.firstWhere(
-      (e) => e.toString() == 'MatrixError.${(raw["errcode"] ?? "")}',
-      orElse: () => MatrixError.M_UNKNOWN);
+        (e) => e.name == errcode,
+        orElse: () => MatrixError.M_UNKNOWN,
+      );
 
   int? get retryAfterMs => raw.tryGet<int>('retry_after_ms');
 
@@ -107,10 +109,10 @@ class MatrixException implements Exception {
   /// to authenticate itself. Each flow comprises a series of stages. If this request
   /// doesn't need additional authentication, then this is null.
   List<AuthenticationFlow>? get authenticationFlows => raw
-      .tryGet<List<dynamic>>('flows')
-      ?.whereType<Map<String, dynamic>>()
+      .tryGet<List<Object?>>('flows')
+      ?.whereType<Map<String, Object?>>()
       .map((flow) => flow['stages'])
-      .whereType<List<dynamic>>()
+      .whereType<List<Object?>>()
       .map((stages) =>
           AuthenticationFlow(List<String>.from(stages.whereType<String>())))
       .toList();
@@ -118,8 +120,8 @@ class MatrixException implements Exception {
   /// This section contains any information that the client will need to know in order to use a given type
   /// of authentication. For each authentication type presented, that type may be present as a key in this
   /// dictionary. For example, the public part of an OAuth client ID could be given here.
-  Map<String, dynamic>? get authenticationParams =>
-      raw.tryGetMap<String, dynamic>('params');
+  Map<String, Object?>? get authenticationParams =>
+      raw.tryGetMap<String, Object?>('params');
 
   /// Returns the list of already completed authentication flows from previous requests.
   List<String> get completedAuthenticationFlows =>

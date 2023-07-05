@@ -1,13 +1,65 @@
+## [1.7.1] - 22nd Jun 2023
+
+- fix: Fixed fake_matrix_api.dart signedOneTimeKeys upload (Malin Errenst)
+- fix: Fix type cast to fix test in matrix-fhir-dart-sdk (Malin Errenst)
+
+## [1.7.0] - 12th Jun 2023
+
+Breaking Change: 
+Refactoring from Map<String, dynamic> to Map<String, Object?> makes some 
+type casts neccessary
+
+- chore: add qr releated eventTypes (td)
+- refactor: Get rid of dynamic lists (Krille)
+- chore: bump version (Malin Errenst)
+- docs: Add regenerate code instructions to readme (Krille)
+- chore: Remove tags for CI test stage (Malin Errenst)
+- refactor: Changed Map<String, dynamic> to Map<String, Object?> (Malin Errenst)
+- chore: generated folder from recent dart_openapi_codegen (Malin Errenst)
+- chore: sort imports (Nicolas Werner)
+- ci: Use the ci template (Nicolas Werner)
+
+## [1.6.1] - 17th Apr 2023
+
+Fixes a small issue in the last release, where some enhanced enums were not
+updated and as such missing a few members.
+
+- fix: Update the generated enum files
+
+## [1.6.0] - 17th Apr 2023
+
+This release updates to version 1.6 of the Matrix specification. Users might
+need to update their read receipt calls to the API changes.
+
+- feat: Upgrade to spec 1.6
+
+## [1.1.10] - 27th Jan 2023
+
+- chore: Update enhanced_enum to 0.2.4
+
+## [1.1.9] - 7th Nov 2022
+
+- feat: Allow converting of stacktraces in logs
+
+## [1.1.8] - 29th Aug 2022
+
+- fix: Edge case where MatrixException.error differs from errcode
+- chore: add pushrules to the event types
+
 ## [1.1.7] - 29th Aug 2022
+
 - fix: Parsing of MatrixException parameters
 
 ## [1.1.6] - 26th Aug 2022
+
 - fix: Fixed missing .pub-cache folder creation in .gitlab-ci.yml
 
 ## [1.1.5] - 25th Aug 2022
+
 - fix: Fixed dysfunctional key-verification (Emoji+manual)
 
 ## [1.1.4] - 25th Aug 2022
+
 - Revert "fix: Secret storage keys are used as account data but are not uri encoded"
 - chore: disable dynamic calls (Nicolas Werner)
 - chore: export filter map extension (Nicolas Werner)
@@ -17,10 +69,12 @@
 - chore: upgrade from pedantic to lints (Nicolas Werner)
 
 ## [1.1.3] - 2nd Aug 2022
+
 - fix: Secret storage keys are used as account data but are not uri encoded
 - chore: export filter map extension
 
 ## [1.1.2] - 2nd Aug 2022
+
 - feat: Add a flag to disable colors in logs
 
 ## 1.1.1

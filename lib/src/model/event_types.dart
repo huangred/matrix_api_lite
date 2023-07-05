@@ -67,6 +67,7 @@ abstract class EventTypes {
   static const String RoomKeyRequest = 'm.room_key_request';
   static const String KeyVerificationRequest = 'm.key.verification.request';
   static const String KeyVerificationStart = 'm.key.verification.start';
+  static const String KeyVerificationReady = 'm.key.verification.ready';
   static const String KeyVerificationDone = 'm.key.verification.done';
   static const String KeyVerificationCancel = 'm.key.verification.cancel';
   static const String KeyVerificationAccept = 'm.key.verification.accept';
@@ -74,12 +75,19 @@ abstract class EventTypes {
   static const String SecretSend = 'm.secret.send';
   static const String Dummy = 'm.dummy';
 
+  // QR
+  static const String QRShow = 'm.qr_code.show.v1';
+  static const String QRScan = 'm.qr_code.scan.v1';
+  static const String Reciprocate = 'm.reciprocate.v1';
+  static const String Sas = 'm.sas.v1';
+
   // Account data event types
   static const String CrossSigningSelfSigning = 'm.cross_signing.self_signing';
   static const String CrossSigningUserSigning = 'm.cross_signing.user_signing';
   static const String CrossSigningMasterKey = 'm.cross_signing.master';
   static const String MegolmBackup = 'm.megolm_backup.v1';
   static const String SecretStorageDefaultKey = 'm.secret_storage.default_key';
+  static const String PushRules = 'm.push_rules';
 
   static String secretStorageKey(String keyId) => 'm.secret_storage.key.$keyId';
 
